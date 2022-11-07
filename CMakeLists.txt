@@ -9,6 +9,25 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
+ament_auto_add_library(icp_matching_component SHARED
+  src/icp_matching_component.cpp
+)
+
+target_compile_definitions(icp_matching_component
+  PRIVATE "ICP_MATCHING_ICP_MATCHING_COMPONENT_BUILDING_DLL"
+)
+
+rclcpp_components_register_nodes(icp_matching_component
+  "icp_matching::IcpMatchingComponent"
+)
+
+ament_auto_add_executable(icp_matching_node
+  src/icp_matching_node.cpp)
+
+target_link_libraries(icp_matching_node
+  icp_matching_component
+)
+
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -24,25 +43,4 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_auto_add_library(icp_matching_component SHARED
-  src/icp_matching_component.cpp
-)
-
-target_compile_definitions(
-  icp_matching_component
-  PRIVATE "ICP_MATCHING_ICP_MATCHING_COMPONENT_BUILDING_DLL"
-)
-
-rclcpp_components_register_nodes(icp_matching_component
-  "icp_matching::IcpMatchingComponent"
-)
-
-ament_auto_add_executable(icp_matching_node
-  NO_TARGET_LINK_LIBRARIES
-  src/icp_matching_node.cpp)
-
-target_link_libraries(icp_matching_node
-  icp_matching_component
-)
-
-ament_package()
+ament_auto_package()

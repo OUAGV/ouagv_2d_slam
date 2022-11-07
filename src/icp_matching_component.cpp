@@ -14,7 +14,6 @@
 
 // Headers in this package
 #include "icp_matching/icp_matching_component.hpp"
-
 // Components
 #include <rclcpp_components/register_node_macro.hpp>
 
@@ -25,7 +24,19 @@ namespace icp_matching
     IcpMatchingComponent::IcpMatchingComponent(const rclcpp::NodeOptions &options)
         : Node("icp_matching_node", options)
     {
-        // TODO:
+        Odomsubscription_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&IcpMatchingComponent::Odom_topic_callback, this, std::placeholders::_1));
+        Scansubscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>("/scan", 10, std::bind(&IcpMatchingComponent::Scan_topic_callback, this, std::placeholders::_1));
+        Posepublisher_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/estimated_pose", 10);
+    }
+
+    void IcpMatchingComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+    {
+        RCLCPP_INFO(get_logger(), "max_angle : %f", msg->angle_max);
+    }
+
+    void IcpMatchingComponent::Odom_topic_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
+    {
+        RCLCPP_INFO(get_logger(), "x : %f y : %f", msg->pose.pose.position.x, msg->pose.pose.position.y);
     }
 }
 
