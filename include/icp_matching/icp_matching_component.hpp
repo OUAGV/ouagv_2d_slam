@@ -17,27 +17,87 @@
 #include "icp_matching/visibility_control.h"
 
 // Headers in ROS2
+#include <math.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
+
+#include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
-#include <nav_msgs/msg/odometry.hpp>
-#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
-
 // Headers needed in pub/sub, exposed types
 #include <memory> // shared_ptr in pub_
 
 namespace icp_matching
 {
-    class IcpMatchingComponent : public rclcpp::Node
-    {
-    public:
-        ICP_MATCHING_ICP_MATCHING_COMPONENT_PUBLIC
-        explicit IcpMatchingComponent(const rclcpp::NodeOptions &options);
+  class IcpMatchingComponent : public rclcpp::Node
+  {
+  public:
+    ICP_MATCHING_ICP_MATCHING_COMPONENT_PUBLIC
+    explicit IcpMatchingComponent(const rclcpp::NodeOptions &options);
 
-    private:
-        rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
-        rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr Odomsubscription_;
-        rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr Posepublisher_;
-        void Odom_topic_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
-        void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
-    };
-}
+  private:
+    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr Odomsubscription_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr Posepublisher_;
+    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr OccupancyGridpublisher_;
+    rclcpp::TimerBase::SharedPtr timer_;
+    nav_msgs::msg::Odometry::SharedPtr odom_;
+    std::vector<int8_t> probability_map_data;
+
+    const float world_width = 10.f;                       // [m]
+    const float world_height = 10.f;                      // [m]
+    const float map_resolution = 0.01;                    // [m/cell]
+    const int map_width = world_width / map_resolution;   // [cell]
+    const int map_height = world_height / map_resolution; // [cell]
+    const int unOccupied = 0;
+    const int occupied = 100;
+    const int unknown = -1;
+
+    void Odom_topic_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+
+    /**
+     * @brief 点群の点の間隔を一定に揃える
+     * 実装についてはゼロから始めるSLAM入門のP41を参照
+     * @param vec
+     */
+    void resamplePoints(std::vector<geometry_msgs::msg::Point> &vec);
+
+    /**
+     * @brief  LaserScanを/map座標系の(x,y)に変換
+     * →OccupancyGridの座標系に変換
+     *
+     * @param msg
+     * @param odom ロボット座標の原点
+     * @return std::vector<geometry_msgs::msg::Point>
+     */
+    std::vector<geometry_msgs::msg::Point> laserScanToPixels(
+        const sensor_msgs::msg::LaserScan::SharedPtr msg,
+        const nav_msgs::msg::Odometry::SharedPtr odom);
+
+    /**
+     * @brief OccupancyGridのデータを更新する
+     *
+     * @param vec
+     * @param robot_pose
+     */
+    void updateMap(
+        std::vector<geometry_msgs::msg::Point> &vec, geometry_msgs::msg::Point &robot_pose);
+
+    /**
+     * @brief 点群の位置とロボットの位置の間を結んだ直線上のPixelをすべて
+     * UnOccupiedで塗りつぶす
+     * @param x1
+     * @param x2
+     * @param y1
+     * @param y2
+     */
+    void plotBresenhamLine(int x1, int x2, int y1, int y2);
+    void publishMap();
+    int getRasterScanIndex(int width, int x, int y);
+    double getYawFromOdom(const nav_msgs::msg::Odometry::SharedPtr &odom);
+  };
+} // namespace icp_matching

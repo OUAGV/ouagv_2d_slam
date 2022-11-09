@@ -13,6 +13,10 @@ ament_auto_add_library(icp_matching_component SHARED
   src/icp_matching_component.cpp
 )
 
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+
 target_compile_definitions(icp_matching_component
   PRIVATE "ICP_MATCHING_ICP_MATCHING_COMPONENT_BUILDING_DLL"
 )

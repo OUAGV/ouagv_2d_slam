@@ -15,16 +15,16 @@
 // limitations under the License.
 
 // Headers in this package
-#include <memory>
 #include <icp_matching/icp_matching_component.hpp>
+#include <memory>
 #include <rclcpp/rclcpp.hpp>
 
-int main(int argc, char *argv[])
+int main(int argc, char * argv[])
 {
-    rclcpp::init(argc, argv);
-    rclcpp::NodeOptions options;
-    auto component = std::make_shared<icp_matching::IcpMatchingComponent>(options);
-    rclcpp::spin(component);
-    rclcpp::shutdown();
-    return 0;
+  rclcpp::init(argc, argv);
+  rclcpp::NodeOptions options;
+  auto component = std::make_shared<icp_matching::IcpMatchingComponent>(options);
+  rclcpp::spin(component);
+  rclcpp::shutdown();
+  return 0;
 }
