@@ -25,6 +25,7 @@ namespace icp_matching
         : Node("icp_matching_node", options)
     {
         probability_map_data.resize(map_height * map_width);
+        std::fill(probability_map_data.begin(), probability_map_data.end(), unknown);
         Odomsubscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/odom", 10,
             std::bind(&IcpMatchingComponent::Odom_topic_callback, this, std::placeholders::_1));
@@ -40,13 +41,17 @@ namespace icp_matching
 
     void IcpMatchingComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
     {
-        std::vector<geometry_msgs::msg::Point> pixels = laserScanToPixels(msg, odom_);
-        // const float pixel_robot_x = odom_->pose.pose.position.x / map_resolution + map_height * 0.5f;
-        // const float pixel_robot_y = odom_->pose.pose.position.y / map_resolution + map_width * 0.5f;
-        // geometry_msgs::msg::Point pixel_robot_pose;
-        // pixel_robot_pose.x = pixel_robot_x;
-        // pixel_robot_pose.y = pixel_robot_y;
-        // updateMap(pixels, pixel_robot_pose);
+        if (odom_)
+        {
+            // RCLCPP_INFO(get_logger(), "odom and scan ok");
+            std::vector<geometry_msgs::msg::Point> pixels = laserScanToPixels(msg, odom_);
+            const float pixel_robot_x = odom_->pose.pose.position.x / map_resolution + map_height * 0.5f;
+            const float pixel_robot_y = odom_->pose.pose.position.y / map_resolution + map_width * 0.5f;
+            geometry_msgs::msg::Point pixel_robot_pose;
+            pixel_robot_pose.x = pixel_robot_x;
+            pixel_robot_pose.y = pixel_robot_y;
+            updateMap(pixels, pixel_robot_pose);
+        }
     }
 
     void IcpMatchingComponent::Odom_topic_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
@@ -63,6 +68,7 @@ namespace icp_matching
         const float robot_x = odom->pose.pose.position.x;
         const float robot_y = odom->pose.pose.position.y;
         const float robot_yaw = getYawFromOdom(odom);
+        // RCLCPP_INFO(get_logger(), "robot pose (odom) : x : %f y : %f yaw : %f", robot_x, robot_y, robot_yaw);
         float current_angle = msg->angle_min;
         for (const float &scan_elem : msg->ranges)
         {
@@ -134,7 +140,6 @@ namespace icp_matching
     {
         const int floored_pixel_robot_x = floor(robot_pose.x);
         const int floored_pixel_robot_y = floor(robot_pose.y);
-        std::fill(probability_map_data.begin(), probability_map_data.end(), unknown);
         for (const geometry_msgs::msg::Point &point : vec)
         {
             const int floored_pixel_point_x = floor(point.x);
@@ -144,6 +149,7 @@ namespace icp_matching
             {
                 plotBresenhamLine(floored_pixel_robot_x, floored_pixel_point_x, floored_pixel_robot_y, floored_pixel_point_y);
                 probability_map_data.at(index) = occupied;
+                RCLCPP_INFO(get_logger(), "index : %d data %d", index, probability_map_data.at(index));
             }
         }
     }
@@ -152,7 +158,7 @@ namespace icp_matching
     {
         nav_msgs::msg::OccupancyGrid map_;
         // OccupancyGridの座標系はmap
-        map_.header.frame_id = "map";
+        map_.header.frame_id = "odom";
         // 時間は現在時刻
         map_.header.stamp = get_clock()->now();
         map_.info.width = map_width;

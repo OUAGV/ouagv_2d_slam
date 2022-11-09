@@ -18,9 +18,9 @@ def generate_launch_description():
     simulator = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [os.path.join(simulation_dir, "launch"),
-             "/show_diff_drive_robot.launch.py"]
+             "/joy_move_robot.launch.py"]
         ),
-        launch_arguments={"show_rviz": "false"}.items()
+        launch_arguments={"show_rviz": "true"}.items()
     )
 
     icp_matching = Node(package="icp_matching",

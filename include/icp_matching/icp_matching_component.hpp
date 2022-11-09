@@ -49,7 +49,7 @@ namespace icp_matching
 
     const float world_width = 10.f;                       // [m]
     const float world_height = 10.f;                      // [m]
-    const float map_resolution = 0.01;                    // [m/cell]
+    const float map_resolution = 0.1;                     // [m/cell]
     const int map_width = world_width / map_resolution;   // [cell]
     const int map_height = world_height / map_resolution; // [cell]
     const int unOccupied = 0;
