@@ -33,6 +33,9 @@ namespace icp_matching
             "/scan", rclcpp::QoS(10).best_effort().durability_volatile(),
             std::bind(&IcpMatchingComponent::Scan_topic_callback, this, std::placeholders::_1));
         OccupancyGridpublisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/map", 1);
+        MarkerPublisher_ = this->create_publisher<visualization_msgs::msg::Marker>("/marker", 10);
+        tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
         using namespace std::chrono_literals;
         // 1秒ごとにOccupancyGridMapをpublishする
@@ -41,52 +44,52 @@ namespace icp_matching
 
     void IcpMatchingComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
     {
-        if (odom_)
+        try
         {
-            // RCLCPP_INFO(get_logger(), "odom and scan ok");
-            std::vector<geometry_msgs::msg::Point> pixels = laserScanToPixels(msg, odom_);
-            const float pixel_robot_x = odom_->pose.pose.position.x / map_resolution + map_height * 0.5f;
-            const float pixel_robot_y = odom_->pose.pose.position.y / map_resolution + map_width * 0.5f;
-            geometry_msgs::msg::Point pixel_robot_pose;
-            pixel_robot_pose.x = pixel_robot_x;
-            pixel_robot_pose.y = pixel_robot_y;
-            updateMap(pixels, pixel_robot_pose);
+            std::vector<geometry_msgs::msg::Point> point_vec;
+            geometry_msgs::msg::TransformStamped laserToMap =
+                tf_buffer_->lookupTransform(map_frame, laser_frame, tf2::TimePointZero);
+            tf2::Quaternion q(
+                laserToMap.transform.rotation.x, laserToMap.transform.rotation.y, laserToMap.transform.rotation.z, laserToMap.transform.rotation.w);
+            tf2::Matrix3x3 m(q);
+            double roll, pitch, yaw;
+            m.getRPY(roll, pitch, yaw);
+            float current_angle = msg->angle_min;
+            for (float &scan : msg->ranges)
+            {
+                if (msg->range_min <= scan && scan <= msg->range_max)
+                {
+                    geometry_msgs::msg::Point point;
+                    // 極座標系をlaserのx,yに変換
+                    point.x = scan * cos(current_angle + yaw) + laserToMap.transform.translation.x + world_width * 0.5f;
+                    point.y = scan * sin(current_angle + yaw) + laserToMap.transform.translation.y + world_height * 0.5f;
+                    point_vec.emplace_back(point);
+                    current_angle += msg->angle_increment;
+                }
+            }
+            geometry_msgs::msg::TransformStamped mapToBaseLink =
+                tf_buffer_->lookupTransform("base_link", map_frame, tf2::TimePointZero);
+            const int cell_robot_x = floor((mapToBaseLink.transform.translation.x + world_width * 0.5f) / map_resolution);
+            const int cell_robot_y = floor((mapToBaseLink.transform.translation.y + world_height * 0.5f) / map_resolution);
+            for (geometry_msgs::msg::Point &point : point_vec)
+            {
+                const int cell_point_x = floor(point.x / map_resolution);
+                const int cell_point_y = floor(point.y / map_resolution);
+                plotBresenhamLine(cell_point_x, cell_robot_x, cell_point_y, cell_robot_y);
+                probability_map_data[getRasterScanIndex(map_width, cell_point_x, cell_point_y)] = occupied;
+            }
+            // publishMarker(point_vec);
+        }
+        catch (const tf2::TransformException &ex)
+        {
+            RCLCPP_INFO(get_logger(), "Could not transform %s to %s: %s", laser_frame, map_frame, ex.what());
+            return;
         }
     }
 
     void IcpMatchingComponent::Odom_topic_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
-        odom_ = msg;
         // RCLCPP_INFO(get_logger(), "x : %f y : %f", msg->pose.pose.position.x, msg->pose.pose.position.y);
-    }
-
-    std::vector<geometry_msgs::msg::Point> IcpMatchingComponent::laserScanToPixels(
-        const sensor_msgs::msg::LaserScan::SharedPtr msg, const nav_msgs::msg::Odometry::SharedPtr odom)
-    {
-
-        std::vector<geometry_msgs::msg::Point> ret;
-        const float robot_x = odom->pose.pose.position.x;
-        const float robot_y = odom->pose.pose.position.y;
-        const float robot_yaw = getYawFromOdom(odom);
-        // RCLCPP_INFO(get_logger(), "robot pose (odom) : x : %f y : %f yaw : %f", robot_x, robot_y, robot_yaw);
-        float current_angle = msg->angle_min;
-        for (const float &scan_elem : msg->ranges)
-        {
-            if (msg->range_min < scan_elem && scan_elem < msg->range_max)
-            {
-                geometry_msgs::msg::Point point;
-                // map座標系に変換
-                point.x = scan_elem * cos(current_angle + robot_yaw) + robot_x;
-                point.y = scan_elem * sin(current_angle + robot_yaw) + robot_y;
-                // pixel座標系に変換
-                // マップサイズの半分を足すことでロボットがマップの中心に来るように調整
-                point.x = point.x / map_resolution + map_height * 0.5;
-                point.y = point.y / map_resolution + map_width * 0.5;
-                ret.emplace_back(point);
-            }
-            current_angle += msg->angle_increment;
-        }
-        return ret;
     }
 
     void IcpMatchingComponent::resamplePoints(std::vector<geometry_msgs::msg::Point> &vec)
@@ -135,30 +138,11 @@ namespace icp_matching
         }
     }
 
-    void IcpMatchingComponent::updateMap(
-        std::vector<geometry_msgs::msg::Point> &vec, geometry_msgs::msg::Point &robot_pose)
-    {
-        const int floored_pixel_robot_x = floor(robot_pose.x);
-        const int floored_pixel_robot_y = floor(robot_pose.y);
-        for (const geometry_msgs::msg::Point &point : vec)
-        {
-            const int floored_pixel_point_x = floor(point.x);
-            const int floored_pixel_point_y = floor(point.y);
-            const int index = getRasterScanIndex(map_width, floored_pixel_point_x, floored_pixel_point_y);
-            if (0 <= index && index <= probability_map_data.size())
-            {
-                plotBresenhamLine(floored_pixel_robot_x, floored_pixel_point_x, floored_pixel_robot_y, floored_pixel_point_y);
-                probability_map_data.at(index) = occupied;
-                RCLCPP_INFO(get_logger(), "index : %d data %d", index, probability_map_data.at(index));
-            }
-        }
-    }
-
     void IcpMatchingComponent::publishMap()
     {
         nav_msgs::msg::OccupancyGrid map_;
         // OccupancyGridの座標系はmap
-        map_.header.frame_id = "odom";
+        map_.header.frame_id = map_frame;
         // 時間は現在時刻
         map_.header.stamp = get_clock()->now();
         map_.info.width = map_width;
@@ -166,63 +150,69 @@ namespace icp_matching
         map_.info.resolution = map_resolution;
         // originではマップの左下のセル（0,0）の位置を指定する
         // このように指定するとマップの中心がセルの中心となる
-        map_.info.origin.position.x = -world_width / 2.f;
-        map_.info.origin.position.y = -world_height / 2.f;
+        map_.info.origin.position.x = -world_width * 0.5f;
+        map_.info.origin.position.y = -world_height * 0.5f;
         map_.data = probability_map_data;
         OccupancyGridpublisher_->publish(map_);
     }
 
-    int IcpMatchingComponent::getRasterScanIndex(int width, int x, int y) { return y * width + x; }
-
-    double IcpMatchingComponent::getYawFromOdom(const nav_msgs::msg::Odometry::SharedPtr &odom)
+    void IcpMatchingComponent::publishMarker(std::vector<geometry_msgs::msg::Point> &vec)
     {
-        tf2::Quaternion q(
-            odom->pose.pose.orientation.x, odom->pose.pose.orientation.y, odom->pose.pose.orientation.z,
-            odom->pose.pose.orientation.w);
-        tf2::Matrix3x3 m(q);
-        double roll, pitch, yaw;
-        m.getRPY(roll, pitch, yaw);
-        return yaw;
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = map_frame;
+        marker.header.stamp = get_clock()->now();
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.id = 0;
+        marker.type = visualization_msgs::msg::Marker::POINTS;
+        marker.points = vec;
+        marker.scale.x = 0.02;
+        marker.scale.y = 0.02;
+        marker.color.g = 1.0f;
+        marker.color.a = 1.0;
+        MarkerPublisher_->publish(marker);
     }
 
     void IcpMatchingComponent::plotBresenhamLine(int x1, int x2, int y1, int y2)
     {
-        if (x1 == x2)
+        const bool steep = abs(y2 - y1) > abs(x2 - x1);
+        if (steep)
         {
+            using std::swap;
+            swap(x1, y1);
+            swap(x2, y2);
         }
-        int dx = abs(x1 - x2), dy = abs(y1 - y2);
-        int p = 2 * dy - dx;
-        int twoDy = 2 * dy, twoDyDx = 2 * (dy - dx);
-        int x, y, xEnd;
-        /*Determine which points to start and End */
         if (x1 > x2)
         {
-            x = x2;
-            y = y2;
-            xEnd = x1;
+            using std::swap;
+            swap(x1, x2);
+            swap(y1, y2);
         }
-        else
+        const int deltax = x2 - x1;
+        const int deltay = abs(y2 - y1);
+        int error = deltax / 2;
+        int y = y1;
+        const int ystep = y1 < y2 ? 1 : -1;
+        for (int x = x1; x < x2; x++)
         {
-            x = x1;
-            y = y1;
-            xEnd = x2;
-        }
-        while (x < xEnd)
-        {
-            x++;
-            if (p < 0)
+            int index = 0;
+
+            if (steep)
             {
-                p = p + twoDy;
+                index = getRasterScanIndex(map_width, y, x);
             }
             else
             {
-                y++;
-                p = p + twoDyDx;
+                index = getRasterScanIndex(map_width, x, y);
             }
-            const int index = getRasterScanIndex(map_width, x, y);
             if (0 <= index && index < probability_map_data.size())
             {
                 probability_map_data.at(index) = unOccupied;
+            }
+            error -= deltay;
+            if (error < 0)
+            {
+                y += ystep;
+                error += deltax;
             }
         }
     }

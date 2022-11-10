@@ -27,6 +27,10 @@ def generate_launch_description():
                         executable="icp_matching_node", name="icp_matching_node",
                         output="screen")
 
+    map_to_odom = Node(package="tf2_ros", executable="static_transform_publisher", arguments=[
+                       '0', '0', '0', '0', '0', '0', 'map', 'odom'])
+
     return LaunchDescription([
         simulator,
+        map_to_odom,
         icp_matching])

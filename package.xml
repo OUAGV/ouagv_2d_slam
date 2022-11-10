@@ -13,6 +13,9 @@
   <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2</depend>
+  <depend>visualization_msgs</depend>
   <!--  <build_depend>perception_msgs</build_depend>-->
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ouxt_lint_common</test_depend>
