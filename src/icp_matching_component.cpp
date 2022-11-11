@@ -81,7 +81,10 @@ namespace icp_matching
           const int cell_point_y = floor(point_y / map_resolution);
 
           plotProbablilityMap(
-              cell_point_x, cell_robot_x, cell_point_y, cell_robot_y, scan);
+              cell_point_x, cell_robot_x, cell_point_y, cell_robot_y);
+          int index = getRasterScanIndex(map_width, cell_point_x, cell_point_y);
+          float current_prob = probability_map_data.at(index);
+          probability_map_data.at(index) = current_prob + log_odd(occupied) - log_odd(l0);
           current_angle += msg->angle_increment;
         }
       }
@@ -167,9 +170,22 @@ namespace icp_matching
     for (float &prob : probability_map_data)
     {
       int integer_prob = static_cast<int>(round(get_prob_from_log_odd(prob) * 100.f));
+      // 違法建築
+      if (integer_prob > 50)
+      {
+        integer_prob = 100;
+        probability_map_data.at(index) = log_odd(occupied);
+      }
+      else if (integer_prob < 10)
+      {
+        integer_prob = 0;
+        probability_map_data.at(index) = log_odd(unOccupied);
+      }
+
       map_.data.at(index) = integer_prob;
       index++;
     }
+
     OccupancyGridpublisher_->publish(map_);
   }
 
@@ -190,7 +206,7 @@ namespace icp_matching
   }
 
   void IcpMatchingComponent::plotProbablilityMap(
-      int robot_x, int laser_x, int robot_y, int laser_y, float z)
+      int robot_x, int laser_x, int robot_y, int laser_y)
   {
     const bool steep = abs(laser_y - robot_y) > abs(laser_x - robot_x);
     if (steep)
@@ -225,14 +241,10 @@ namespace icp_matching
       if (0 <= index && index < static_cast<int>(probability_map_data.size()))
       {
         float current_prob = probability_map_data.at(index);
-        const float map_laser_x = static_cast<float>(x) * map_resolution;
-        const float map_laser_y = static_cast<float>(y) * map_resolution;
-        const float map_robot_x = static_cast<float>(robot_x) * map_resolution;
-        const float map_robot_y = static_cast<float>(robot_y) * map_resolution;
         const float new_prob = current_prob +
                                inverse_range_sensor_model(
-                                   map_laser_x, map_laser_y, map_robot_x, map_robot_y, z) -
-                               log_odd(priorProbability);
+                                   laser_x, laser_y, index) -
+                               log_odd(l0);
         probability_map_data.at(index) = new_prob;
       }
       error -= deltay;
@@ -245,18 +257,13 @@ namespace icp_matching
   }
 
   float IcpMatchingComponent::inverse_range_sensor_model(
-      float laser_x, float laser_y, float cell_x, float cell_y, float z)
+      int laser_x, int laser_y, int index)
   {
-    const float r = sqrt(pow((cell_x - laser_x), 2) + pow((cell_y - laser_y), 2));
-    if (abs(r - z) < inverse_range_sensor_model_alpha * 0.5f)
-    {
-      return log_odd(occupied);
-    }
-    if (r < z)
-    {
-      return log_odd(unOccupied);
-    }
-    return log_odd(priorProbability);
+    // if (index == getRasterScanIndex(map_width, laser_x, laser_y))
+    // {
+    //   return log_odd(occupied);
+    // }
+    return log_odd(unOccupied);
   }
 } // namespace icp_matching
 

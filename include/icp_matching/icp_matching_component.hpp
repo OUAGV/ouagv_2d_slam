@@ -65,8 +65,9 @@ namespace icp_matching
     const float unOccupied = 0.01f;
     const float occupied = 0.99f;
     const float priorProbability = 0.5f;
+    const float l0 = 0.1f;
     const int unknown = -1;
-    const float inverse_range_sensor_model_alpha = 0.02f;
+    const float inverse_range_sensor_model_alpha = 0.1f;
     std::string map_frame = "map";
     std::string laser_frame = "lidar_link";
 
@@ -101,19 +102,17 @@ namespace icp_matching
     void resamplePoints(std::vector<geometry_msgs::msg::Point> &vec);
 
     void plotProbablilityMap(
-        int robot_x, int laser_x, int robot_y, int laser_y, float z);
+        int robot_x, int laser_x, int robot_y, int laser_y);
 
     /**
      * @brief
      *
-     * @param laser_x laser x (in map coordinate)
-     * @param laser_y laser y (in map coordinate)
-     * @param cell_x セルのx座標 (in map coordinate)
-     * @param cell_y セルのy座標 (in map coordinate)
-     * @param z LaserScanのrange
+     * @param point_x laser x (in cell coordinate)
+     * @param point_y laser y (in cell coordinate)
+     * @param index
      * @return float
      */
     float inverse_range_sensor_model(
-        float laser_x, float laser_y, float cell_x, float cell_y, float z);
+        int laser_x, int laser_y, int index);
   };
 } // namespace icp_matching
