@@ -64,6 +64,7 @@ private:
   const int unOccupied = 0;
   const int occupied = 100;
   const int unknown = -1;
+  const float inverse_range_sensor_model_alpha = 0.02f;
   std::string map_frame = "map";
   std::string laser_frame = "lidar_link";
 
@@ -89,5 +90,8 @@ private:
   void publishMap();
   void publishMarker(std::vector<geometry_msgs::msg::Point> & vec);
   int getRasterScanIndex(int width, int x, int y) { return y * width + x; }
+  float inverse_range_sensor_model(
+    geometry_msgs::msg::TransformStamped & transform, geometry_msgs::msg::Point & point,
+    std::tuple<float, float> & scan);
 };
 }  // namespace icp_matching
