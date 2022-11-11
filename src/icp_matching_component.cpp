@@ -25,7 +25,7 @@ namespace icp_matching
       : Node("icp_matching_node", options)
   {
     probability_map_data.resize(map_height * map_width);
-    std::fill(probability_map_data.begin(), probability_map_data.end(), unknown);
+    std::fill(probability_map_data.begin(), probability_map_data.end(), log_odd(priorProbability));
     Odomsubscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "/odom", 10,
         std::bind(&IcpMatchingComponent::Odom_topic_callback, this, std::placeholders::_1));
@@ -48,7 +48,7 @@ namespace icp_matching
     {
       // get tf map -> base_link
       geometry_msgs::msg::TransformStamped mapToBaseLink =
-          tf_buffer_->lookupTransform("base_link", map_frame, tf2::TimePointZero);
+          tf_buffer_->lookupTransform(map_frame, "base_link", tf2::TimePointZero);
 
       // get (x,y) of base_link in cell coordinate
       const int cell_robot_x =
@@ -79,8 +79,9 @@ namespace icp_matching
                                 world_height * 0.5f;
           const int cell_point_x = floor(point_x / map_resolution);
           const int cell_point_y = floor(point_y / map_resolution);
-          plotBresenhamLine(cell_point_x, cell_robot_x, cell_point_y, cell_robot_y);
-          probability_map_data[getRasterScanIndex(map_width, cell_point_x, cell_point_y)] = occupied;
+
+          plotProbablilityMap(
+              cell_point_x, cell_robot_x, cell_point_y, cell_robot_y, scan);
           current_angle += msg->angle_increment;
         }
       }
@@ -89,7 +90,8 @@ namespace icp_matching
     catch (const tf2::TransformException &ex)
     {
       RCLCPP_INFO(
-          get_logger(), "Could not transform %s to %s: %s", laser_frame.c_str(), map_frame.c_str(), ex.what());
+          get_logger(), "Could not transform %s to %s: %s", laser_frame.c_str(), map_frame.c_str(),
+          ex.what());
       return;
     }
   }
@@ -159,7 +161,15 @@ namespace icp_matching
     // このように指定するとマップの中心がセルの中心となる
     map_.info.origin.position.x = -world_width * 0.5f;
     map_.info.origin.position.y = -world_height * 0.5f;
-    map_.data = probability_map_data;
+    map_.data.resize(map_width * map_height);
+    std::fill(map_.data.begin(), map_.data.end(), unknown);
+    int index = 0;
+    for (float &prob : probability_map_data)
+    {
+      int integer_prob = static_cast<int>(round(get_prob_from_log_odd(prob) * 100.f));
+      map_.data.at(index) = integer_prob;
+      index++;
+    }
     OccupancyGridpublisher_->publish(map_);
   }
 
@@ -179,27 +189,28 @@ namespace icp_matching
     MarkerPublisher_->publish(marker);
   }
 
-  void IcpMatchingComponent::plotBresenhamLine(int x1, int x2, int y1, int y2)
+  void IcpMatchingComponent::plotProbablilityMap(
+      int robot_x, int laser_x, int robot_y, int laser_y, float z)
   {
-    const bool steep = abs(y2 - y1) > abs(x2 - x1);
+    const bool steep = abs(laser_y - robot_y) > abs(laser_x - robot_x);
     if (steep)
     {
       using std::swap;
-      swap(x1, y1);
-      swap(x2, y2);
+      swap(robot_x, robot_y);
+      swap(laser_x, laser_y);
     }
-    if (x1 > x2)
+    if (robot_x > laser_x)
     {
       using std::swap;
-      swap(x1, x2);
-      swap(y1, y2);
+      swap(robot_x, laser_x);
+      swap(robot_y, laser_y);
     }
-    const int deltax = x2 - x1;
-    const int deltay = abs(y2 - y1);
+    const int deltax = laser_x - robot_x;
+    const int deltay = abs(laser_y - robot_y);
     int error = deltax / 2;
-    int y = y1;
-    const int ystep = y1 < y2 ? 1 : -1;
-    for (int x = x1; x < x2; x++)
+    int y = robot_y;
+    const int ystep = robot_y < laser_y ? 1 : -1;
+    for (int x = robot_x; x < laser_x; x++)
     {
       int index = 0;
 
@@ -213,7 +224,16 @@ namespace icp_matching
       }
       if (0 <= index && index < static_cast<int>(probability_map_data.size()))
       {
-        probability_map_data.at(index) = unOccupied;
+        float current_prob = probability_map_data.at(index);
+        const float map_laser_x = static_cast<float>(x) * map_resolution;
+        const float map_laser_y = static_cast<float>(y) * map_resolution;
+        const float map_robot_x = static_cast<float>(robot_x) * map_resolution;
+        const float map_robot_y = static_cast<float>(robot_y) * map_resolution;
+        const float new_prob = current_prob +
+                               inverse_range_sensor_model(
+                                   map_laser_x, map_laser_y, map_robot_x, map_robot_y, z) -
+                               log_odd(priorProbability);
+        probability_map_data.at(index) = new_prob;
       }
       error -= deltay;
       if (error < 0)
@@ -225,10 +245,18 @@ namespace icp_matching
   }
 
   float IcpMatchingComponent::inverse_range_sensor_model(
-      geometry_msgs::msg::TransformStamped &transform, geometry_msgs::msg::Point &cell,
-      std::tuple<float, float> &scan)
+      float laser_x, float laser_y, float cell_x, float cell_y, float z)
   {
-    // const float r = sqrt(pow((ce), 2) + pow((), 2));
+    const float r = sqrt(pow((cell_x - laser_x), 2) + pow((cell_y - laser_y), 2));
+    if (abs(r - z) < inverse_range_sensor_model_alpha * 0.5f)
+    {
+      return log_odd(occupied);
+    }
+    if (r < z)
+    {
+      return log_odd(unOccupied);
+    }
+    return log_odd(priorProbability);
   }
 } // namespace icp_matching
 
