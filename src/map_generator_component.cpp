@@ -13,16 +13,16 @@
 // limitations under the License.
 
 // Headers in this package
-#include "icp_matching/icp_matching_component.hpp"
+#include "map_generator/map_generator_component.hpp"
 // Components
 #include <rclcpp_components/register_node_macro.hpp>
 
 // Headers needed in this component
 
-namespace icp_matching
+namespace map_generator
 {
-  IcpMatchingComponent::IcpMatchingComponent(const rclcpp::NodeOptions &options)
-      : Node("icp_matching_node", options)
+  MapGeneratorComponent::MapGeneratorComponent(const rclcpp::NodeOptions &options)
+      : Node("map_generator_node", options)
   {
     probability_map_data.resize(map_height * map_width);
     if (easy_calculate_prob_method)
@@ -35,7 +35,7 @@ namespace icp_matching
     std::fill(probability_map_data.begin(), probability_map_data.end(), log_odd(priorProbability));
     Scansubscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "/scan", rclcpp::QoS(10).best_effort().durability_volatile(),
-        std::bind(&IcpMatchingComponent::Scan_topic_callback, this, std::placeholders::_1));
+        std::bind(&MapGeneratorComponent::Scan_topic_callback, this, std::placeholders::_1));
     OccupancyGridpublisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/map", 1);
     MarkerPublisher_ = this->create_publisher<visualization_msgs::msg::Marker>("/marker", 10);
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -43,10 +43,10 @@ namespace icp_matching
 
     using namespace std::chrono_literals;
     // 1秒ごとにOccupancyGridMapをpublishする
-    timer_ = this->create_wall_timer(500ms, std::bind(&IcpMatchingComponent::publishMap, this));
+    timer_ = this->create_wall_timer(500ms, std::bind(&MapGeneratorComponent::publishMap, this));
   }
 
-  void IcpMatchingComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+  void MapGeneratorComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
   {
     try
     {
@@ -103,7 +103,7 @@ namespace icp_matching
     }
   }
 
-  void IcpMatchingComponent::publishMap()
+  void MapGeneratorComponent::publishMap()
   {
     nav_msgs::msg::OccupancyGrid map_;
     // OccupancyGridの座標系はmap
@@ -142,7 +142,7 @@ namespace icp_matching
     OccupancyGridpublisher_->publish(map_);
   }
 
-  void IcpMatchingComponent::publishMarker(std::vector<geometry_msgs::msg::Point> &vec)
+  void MapGeneratorComponent::publishMarker(std::vector<geometry_msgs::msg::Point> &vec)
   {
     visualization_msgs::msg::Marker marker;
     marker.header.frame_id = map_frame;
@@ -158,7 +158,7 @@ namespace icp_matching
     MarkerPublisher_->publish(marker);
   }
 
-  void IcpMatchingComponent::plotProbablilityMap(
+  void MapGeneratorComponent::plotProbablilityMap(
       int robot_x, int laser_x, int robot_y, int laser_y)
   {
     const bool steep = abs(laser_y - robot_y) > abs(laser_x - robot_x);
@@ -229,7 +229,7 @@ namespace icp_matching
     }
   }
 
-  float IcpMatchingComponent::inverse_range_sensor_model(
+  float MapGeneratorComponent::inverse_range_sensor_model(
       int laser_x,
       int laser_y,
       int current_x,
@@ -248,6 +248,6 @@ namespace icp_matching
       return log_odd(l0);
     }
   }
-} // namespace icp_matching
+} // namespace map_generator
 
-RCLCPP_COMPONENTS_REGISTER_NODE(icp_matching::IcpMatchingComponent)
+RCLCPP_COMPONENTS_REGISTER_NODE(map_generator::MapGeneratorComponent)

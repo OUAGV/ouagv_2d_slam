@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "icp_matching/visibility_control.h"
+#include "map_generator/visibility_control.h"
 
 // Headers in ROS2
 #include <math.h>
@@ -36,13 +36,13 @@
 // Headers needed in pub/sub, exposed types
 #include <memory> // shared_ptr in pub_
 
-namespace icp_matching
+namespace map_generator
 {
-  class IcpMatchingComponent : public rclcpp::Node
+  class MapGeneratorComponent : public rclcpp::Node
   {
   public:
-    ICP_MATCHING_ICP_MATCHING_COMPONENT_PUBLIC
-    explicit IcpMatchingComponent(const rclcpp::NodeOptions &options);
+    MAP_GENERATOR_MAP_GENERATOR_COMPONENT_PUBLIC
+    explicit MapGeneratorComponent(const rclcpp::NodeOptions &options);
 
   private:
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
@@ -100,4 +100,4 @@ namespace icp_matching
         int current_x,
         int current_y);
   };
-} // namespace icp_matching
+} // namespace map_generator

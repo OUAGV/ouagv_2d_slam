@@ -1,4 +1,4 @@
-# icp_matching
+# map_generator
 
 ## Subscribe
 

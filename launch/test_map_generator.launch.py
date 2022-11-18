@@ -10,7 +10,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 simulation_dir = os.path.join(
     get_package_share_directory("ouagv_robot_description"))
 
-share_dir = os.path.join(get_package_share_directory("icp_matching"))
+share_dir = os.path.join(get_package_share_directory("map_generator"))
 
 
 def generate_launch_description():
@@ -23,9 +23,9 @@ def generate_launch_description():
         launch_arguments={"show_rviz": "true"}.items()
     )
 
-    icp_matching = Node(package="icp_matching",
-                        executable="icp_matching_node", name="icp_matching_node",
-                        output="screen")
+    map_generator = Node(package="map_generator",
+                         executable="map_generator_node", name="map_generator_node",
+                         output="screen")
 
     map_to_odom = Node(package="tf2_ros", executable="static_transform_publisher", arguments=[
                        '0', '0', '0', '0', '0', '0', 'map', 'odom'])
@@ -33,4 +33,4 @@ def generate_launch_description():
     return LaunchDescription([
         simulator,
         map_to_odom,
-        icp_matching])
+        map_generator])

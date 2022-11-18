@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(icp_matching)
+project(map_generator)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -9,27 +9,27 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 
-ament_auto_add_library(icp_matching_component SHARED
-  src/icp_matching_component.cpp
+ament_auto_add_library(map_generator_component SHARED
+  src/map_generator_component.cpp
 )
 
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}/launch
 )
 
-target_compile_definitions(icp_matching_component
-  PRIVATE "ICP_MATCHING_ICP_MATCHING_COMPONENT_BUILDING_DLL"
+target_compile_definitions(map_generator_component
+  PRIVATE "MAP_GENERATOR_MAP_GENERATOR_COMPONENT_BUILDING_DLL"
 )
 
-rclcpp_components_register_nodes(icp_matching_component
-  "icp_matching::IcpMatchingComponent"
+rclcpp_components_register_nodes(map_generator_component
+  "map_generator::MapGeneratorComponent"
 )
 
-ament_auto_add_executable(icp_matching_node
-  src/icp_matching_node.cpp)
+ament_auto_add_executable(map_generator_node
+  src/map_generator_node.cpp)
 
-target_link_libraries(icp_matching_node
-  icp_matching_component
+target_link_libraries(map_generator_node
+  map_generator_component
 )
 
 # uncomment the following section in order to fill in
