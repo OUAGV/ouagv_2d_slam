@@ -46,7 +46,6 @@ namespace icp_matching
 
   private:
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
-    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr Odomsubscription_;
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr Posepublisher_;
     rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr OccupancyGridpublisher_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr MarkerPublisher_;
@@ -56,24 +55,28 @@ namespace icp_matching
     rclcpp::TimerBase::SharedPtr timer_;
     nav_msgs::msg::Odometry::SharedPtr odom_;
     std::vector<float> probability_map_data;
+    std::vector<int> array_count_if_obstacle;
+    std::vector<int> array_count_all_hit;
 
     const float world_width = 100.f;                      // [m]
     const float world_height = 100.f;                     // [m]
     const float map_resolution = 0.05f;                   // [m/cell]
     const int map_width = world_width / map_resolution;   // [cell]
     const int map_height = world_height / map_resolution; // [cell]
-    const float unOccupied = 0.01f;
-    const float occupied = 0.99f;
+    const float unOccupied = 0.1f;
+    const float occupied = 0.999f;
     const float priorProbability = 0.5f;
-    const float l0 = 0.1f;
+    const float l0 = 0.5f;
     const int unknown = -1;
     const float inverse_range_sensor_model_alpha = 0.1f;
+    const bool easy_calculate_prob_method = true;
     std::string map_frame = "map";
     std::string laser_frame = "lidar_link";
 
     void publishMap();
     void publishMarker(std::vector<geometry_msgs::msg::Point> &vec);
     int getRasterScanIndex(int width, int x, int y) { return y * width + x; }
+
     float log_odd(float prob)
     {
       return log(prob / (1.0f - prob));
@@ -82,37 +85,19 @@ namespace icp_matching
     float get_prob_from_log_odd(float log_odd) { return exp(log_odd) / (1.f + exp(log_odd)); }
 
     /**
-     * @brief odom callback
-     *
-     * @param msg
-     */
-    void Odom_topic_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
-    /**
      * @brief scan callback
      *
      * @param msg
      */
     void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
 
-    /**
-     * @brief 点群の点の間隔を一定に揃える
-     * 実装についてはゼロから始めるSLAM入門のP41を参照
-     * @param vec
-     */
-    void resamplePoints(std::vector<geometry_msgs::msg::Point> &vec);
-
     void plotProbablilityMap(
         int robot_x, int laser_x, int robot_y, int laser_y);
 
-    /**
-     * @brief
-     *
-     * @param point_x laser x (in cell coordinate)
-     * @param point_y laser y (in cell coordinate)
-     * @param index
-     * @return float
-     */
     float inverse_range_sensor_model(
-        int laser_x, int laser_y, int index);
+        int laser_x,
+        int laser_y,
+        int current_x,
+        int current_y);
   };
 } // namespace icp_matching

@@ -25,10 +25,14 @@ namespace icp_matching
       : Node("icp_matching_node", options)
   {
     probability_map_data.resize(map_height * map_width);
+    if (easy_calculate_prob_method)
+    {
+      array_count_all_hit.resize(map_height * map_width);
+      std::fill(array_count_all_hit.begin(), array_count_all_hit.end(), 0);
+      array_count_if_obstacle.resize(map_height * map_width);
+      std::fill(array_count_if_obstacle.begin(), array_count_if_obstacle.end(), 0);
+    }
     std::fill(probability_map_data.begin(), probability_map_data.end(), log_odd(priorProbability));
-    Odomsubscription_ = this->create_subscription<nav_msgs::msg::Odometry>(
-        "/odom", 10,
-        std::bind(&IcpMatchingComponent::Odom_topic_callback, this, std::placeholders::_1));
     Scansubscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "/scan", rclcpp::QoS(10).best_effort().durability_volatile(),
         std::bind(&IcpMatchingComponent::Scan_topic_callback, this, std::placeholders::_1));
@@ -39,7 +43,7 @@ namespace icp_matching
 
     using namespace std::chrono_literals;
     // 1秒ごとにOccupancyGridMapをpublishする
-    timer_ = this->create_wall_timer(1s, std::bind(&IcpMatchingComponent::publishMap, this));
+    timer_ = this->create_wall_timer(500ms, std::bind(&IcpMatchingComponent::publishMap, this));
   }
 
   void IcpMatchingComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
@@ -99,57 +103,6 @@ namespace icp_matching
     }
   }
 
-  void IcpMatchingComponent::Odom_topic_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
-  {
-    // RCLCPP_INFO(get_logger(), "x : %f y : %f", msg->pose.pose.position.x, msg->pose.pose.position.y);
-  }
-
-  void IcpMatchingComponent::resamplePoints(std::vector<geometry_msgs::msg::Point> &vec)
-  {
-    const float interpolate_threthold_min_m = 0.015f; // [m]
-    const float interpolate_threthold_max_m = 0.02f;  // [m]
-    if (vec.size() == 0)
-    {
-      return;
-    }
-    int index = 0;
-    float distance_sum = 0.f;
-    geometry_msgs::msg::Point last_point = vec.at(index);
-    std::vector<geometry_msgs::msg::Point> interpolated_points;
-    interpolated_points.emplace_back(last_point);
-    while (index < vec.size())
-    {
-      const geometry_msgs::msg::Point current_point = vec.at(index);
-      const float dx = current_point.x - last_point.x;
-      const float dy = current_point.y - last_point.y;
-      const float distance_between_neighbor_points = sqrt(pow(dx, 2) + pow(dy, 2));
-      // RCLCPP_INFO(get_logger(), "%f", distance_between_neighbor_points);
-      distance_sum += distance_between_neighbor_points;
-      if (distance_sum < interpolate_threthold_min_m)
-      {
-        last_point = current_point;
-        index++;
-      }
-      else if (distance_sum >= interpolate_threthold_max_m)
-      {
-        interpolated_points.emplace_back(current_point);
-        last_point = current_point;
-        distance_sum = 0.f;
-        index++;
-      }
-      else
-      {
-        const float ratio =
-            (distance_between_neighbor_points - (distance_sum - interpolate_threthold_min_m)) /
-            distance_between_neighbor_points;
-        geometry_msgs::msg::Point newPoint;
-        newPoint.x = last_point.x + dx * ratio;
-        newPoint.y = last_point.y + dy * ratio;
-        interpolated_points.emplace_back(newPoint);
-      }
-    }
-  }
-
   void IcpMatchingComponent::publishMap()
   {
     nav_msgs::msg::OccupancyGrid map_;
@@ -170,17 +123,17 @@ namespace icp_matching
     for (float &prob : probability_map_data)
     {
       int integer_prob = static_cast<int>(round(get_prob_from_log_odd(prob) * 100.f));
-      // 違法建築
-      if (integer_prob > 50)
-      {
-        integer_prob = 100;
-        probability_map_data.at(index) = log_odd(occupied);
-      }
-      else if (integer_prob < 10)
-      {
-        integer_prob = 0;
-        probability_map_data.at(index) = log_odd(unOccupied);
-      }
+      // // 違法建築
+      // if (integer_prob > 50)
+      // {
+      //   integer_prob = 100;
+      //   probability_map_data.at(index) = log_odd(occupied);
+      // }
+      // else if (integer_prob < 10)
+      // {
+      //   integer_prob = 0;
+      //   probability_map_data.at(index) = log_odd(unOccupied);
+      // }
 
       map_.data.at(index) = integer_prob;
       index++;
@@ -226,7 +179,7 @@ namespace icp_matching
     int error = deltax / 2;
     int y = robot_y;
     const int ystep = robot_y < laser_y ? 1 : -1;
-    for (int x = robot_x; x < laser_x; x++)
+    for (int x = robot_x; x <= laser_x; x++)
     {
       int index = 0;
 
@@ -240,12 +193,32 @@ namespace icp_matching
       }
       if (0 <= index && index < static_cast<int>(probability_map_data.size()))
       {
-        float current_prob = probability_map_data.at(index);
-        const float new_prob = current_prob +
-                               inverse_range_sensor_model(
-                                   laser_x, laser_y, index) -
-                               log_odd(l0);
-        probability_map_data.at(index) = new_prob;
+        if (easy_calculate_prob_method)
+        {
+          array_count_all_hit.at(index) = array_count_all_hit.at(index) + 1;
+          if (laser_x == x && laser_y == y)
+          {
+            array_count_if_obstacle.at(index) = array_count_if_obstacle.at(index) + 1;
+          }
+          const float prob = static_cast<float>(array_count_if_obstacle.at(index)) / static_cast<float>(array_count_all_hit.at(index));
+          if (prob > 0.f)
+          {
+            probability_map_data.at(index) = log_odd(prob);
+          }
+          else
+          {
+            probability_map_data.at(index) = log_odd(unOccupied);
+          }
+        }
+        else
+        {
+          float current_prob = probability_map_data.at(index);
+          const float new_prob = current_prob +
+                                 inverse_range_sensor_model(
+                                     laser_x, laser_y, x, y) -
+                                 log_odd(l0);
+          probability_map_data.at(index) = new_prob;
+        }
       }
       error -= deltay;
       if (error < 0)
@@ -257,13 +230,23 @@ namespace icp_matching
   }
 
   float IcpMatchingComponent::inverse_range_sensor_model(
-      int laser_x, int laser_y, int index)
+      int laser_x,
+      int laser_y,
+      int current_x,
+      int current_y)
   {
-    // if (index == getRasterScanIndex(map_width, laser_x, laser_y))
-    // {
-    //   return log_odd(occupied);
-    // }
-    return log_odd(unOccupied);
+    if (abs(laser_x - current_x) < 2)
+    {
+      return log_odd(occupied);
+    }
+    else if (current_x < laser_x)
+    {
+      return log_odd(unOccupied);
+    }
+    else
+    {
+      return log_odd(l0);
+    }
   }
 } // namespace icp_matching
 
