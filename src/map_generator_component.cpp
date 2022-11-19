@@ -50,19 +50,15 @@ namespace map_generator
   {
     try
     {
-      // get tf map -> base_link
-      geometry_msgs::msg::TransformStamped mapToBaseLink =
-          tf_buffer_->lookupTransform(map_frame, "base_link", tf2::TimePointZero);
-
-      // get (x,y) of base_link in cell coordinate
-      const int cell_robot_x =
-          floor((mapToBaseLink.transform.translation.x + world_width * 0.5f) / map_resolution);
-      const int cell_robot_y =
-          floor((mapToBaseLink.transform.translation.y + world_height * 0.5f) / map_resolution);
-
       // get tf laser -> map
       geometry_msgs::msg::TransformStamped laserToMap =
           tf_buffer_->lookupTransform(map_frame, laser_frame, tf2::TimePointZero);
+
+      // get (x,y) of base_link in cell coordinate
+      const int cell_robot_x =
+          floor((laserToMap.transform.translation.x + world_width * 0.5f) / map_resolution);
+      const int cell_robot_y =
+          floor((laserToMap.transform.translation.y + world_height * 0.5f) / map_resolution);
 
       tf2::Quaternion q(
           laserToMap.transform.rotation.x, laserToMap.transform.rotation.y,
@@ -88,7 +84,18 @@ namespace map_generator
               cell_point_x, cell_robot_x, cell_point_y, cell_robot_y);
           int index = getRasterScanIndex(map_width, cell_point_x, cell_point_y);
           float current_prob = probability_map_data.at(index);
-          probability_map_data.at(index) = current_prob + log_odd(occupied) - log_odd(l0);
+          if (easy_calculate_prob_method)
+          {
+            array_count_if_obstacle.at(index) += 1;
+            array_count_all_hit.at(index) += 1;
+            const float prob = static_cast<float>(array_count_if_obstacle.at(index)) / static_cast<float>(array_count_all_hit.at(index));
+            probability_map_data.at(index) = log_odd(prob);
+          }
+          else
+          {
+            probability_map_data.at(index) = current_prob + log_odd(occupied) - log_odd(l0);
+          }
+
           current_angle += msg->angle_increment;
         }
       }
@@ -123,17 +130,6 @@ namespace map_generator
     for (float &prob : probability_map_data)
     {
       int integer_prob = static_cast<int>(round(get_prob_from_log_odd(prob) * 100.f));
-      // // 違法建築
-      // if (integer_prob > 50)
-      // {
-      //   integer_prob = 100;
-      //   probability_map_data.at(index) = log_odd(occupied);
-      // }
-      // else if (integer_prob < 10)
-      // {
-      //   integer_prob = 0;
-      //   probability_map_data.at(index) = log_odd(unOccupied);
-      // }
 
       map_.data.at(index) = integer_prob;
       index++;
@@ -179,7 +175,7 @@ namespace map_generator
     int error = deltax / 2;
     int y = robot_y;
     const int ystep = robot_y < laser_y ? 1 : -1;
-    for (int x = robot_x; x <= laser_x; x++)
+    for (int x = robot_x; x < laser_x; x++)
     {
       int index = 0;
 
@@ -196,10 +192,6 @@ namespace map_generator
         if (easy_calculate_prob_method)
         {
           array_count_all_hit.at(index) = array_count_all_hit.at(index) + 1;
-          if (laser_x == x && laser_y == y)
-          {
-            array_count_if_obstacle.at(index) = array_count_if_obstacle.at(index) + 1;
-          }
           const float prob = static_cast<float>(array_count_if_obstacle.at(index)) / static_cast<float>(array_count_all_hit.at(index));
           if (prob > 0.f)
           {

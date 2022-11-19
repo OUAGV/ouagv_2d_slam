@@ -63,8 +63,8 @@ namespace map_generator
     const float map_resolution = 0.05f;                   // [m/cell]
     const int map_width = world_width / map_resolution;   // [cell]
     const int map_height = world_height / map_resolution; // [cell]
-    const float unOccupied = 0.1f;
-    const float occupied = 0.999f;
+    const float unOccupied = 0.01f;
+    const float occupied = 0.99f;
     const float priorProbability = 0.5f;
     const float l0 = 0.5f;
     const int unknown = -1;
