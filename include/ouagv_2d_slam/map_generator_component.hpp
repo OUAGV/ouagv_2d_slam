@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "map_generator/visibility_control.h"
+#include "ouagv_2d_slam/visibility_control_map_generator.h"
 
 // Headers in ROS2
 #include <math.h>

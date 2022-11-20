@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Headers in this package
-#include "map_generator/map_generator_component.hpp"
+#include "ouagv_2d_slam/map_generator_component.hpp"
 // Components
 #include <rclcpp_components/register_node_macro.hpp>
 

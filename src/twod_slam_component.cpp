@@ -1,5 +1,3 @@
-
-
 // Copyright (c) 2022 OUXT Polaris
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,16 +13,19 @@
 // limitations under the License.
 
 // Headers in this package
-#include <ouagv_2d_slam/map_generator_component.hpp>
-#include <memory>
-#include <rclcpp/rclcpp.hpp>
+#include "ouagv_2d_slam/twod_slam_component.hpp"
+// Components
+#include <rclcpp_components/register_node_macro.hpp>
 
-int main(int argc, char *argv[])
+// Headers needed in this component
+
+namespace twod_slam
 {
-  rclcpp::init(argc, argv);
-  rclcpp::NodeOptions options;
-  auto component = std::make_shared<map_generator::MapGeneratorComponent>(options);
-  rclcpp::spin(component);
-  rclcpp::shutdown();
-  return 0;
-}
+    TwodSlamComponent::TwodSlamComponent(const rclcpp::NodeOptions &options)
+        : Node("twod_slam_node", options)
+    {
+    }
+
+} // namespace twod_slam
+
+RCLCPP_COMPONENTS_REGISTER_NODE(twod_slam::TwodSlamComponent)

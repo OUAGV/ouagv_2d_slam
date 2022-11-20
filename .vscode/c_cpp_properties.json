@@ -60,7 +60,7 @@
         "/home/tatsuki/ouxt_automation/robotx_ws/install/behavior_tree_action_builder/include/**",
         "/opt/ros/galactic/include/**",
         "/home/tatsuki/colcon_ws/src/gazebo_ros2_control/gazebo_ros2_control/include/**",
-        "/home/tatsuki/colcon_ws/src/map_generator/include/**",
+        "/home/tatsuki/colcon_ws/src/ouagv_2d_slam/include/**",
         "/home/tatsuki/colcon_ws/src/joy_to_twist/include/**",
         "/home/tatsuki/colcon_ws/src/sensor_fusion_ekf/include/**",
         "/usr/include/**",

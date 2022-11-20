@@ -10,7 +10,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 simulation_dir = os.path.join(
     get_package_share_directory("ouagv_robot_description"))
 
-share_dir = os.path.join(get_package_share_directory("map_generator"))
+share_dir = os.path.join(get_package_share_directory("ouagv_2d_slam"))
 
 
 def generate_launch_description():
@@ -23,7 +23,7 @@ def generate_launch_description():
         launch_arguments={"show_rviz": "true"}.items()
     )
 
-    map_generator = Node(package="map_generator",
+    map_generator = Node(package="ouagv_2d_slam",
                          executable="map_generator_node", name="map_generator_node",
                          output="screen")
 

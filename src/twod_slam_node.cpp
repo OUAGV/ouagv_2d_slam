@@ -15,16 +15,16 @@
 // limitations under the License.
 
 // Headers in this package
-#include <ouagv_2d_slam/map_generator_component.hpp>
+#include <ouagv_2d_slam/twod_slam_component.hpp>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 
 int main(int argc, char *argv[])
 {
-  rclcpp::init(argc, argv);
-  rclcpp::NodeOptions options;
-  auto component = std::make_shared<map_generator::MapGeneratorComponent>(options);
-  rclcpp::spin(component);
-  rclcpp::shutdown();
-  return 0;
+    rclcpp::init(argc, argv);
+    rclcpp::NodeOptions options;
+    auto component = std::make_shared<twod_slam::TwodSlamComponent>(options);
+    rclcpp::spin(component);
+    rclcpp::shutdown();
+    return 0;
 }

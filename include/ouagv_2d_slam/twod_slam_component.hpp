@@ -1,5 +1,3 @@
-
-
 // Copyright (c) 2022 OUXT Polaris
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,17 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Headers in this package
-#include <ouagv_2d_slam/map_generator_component.hpp>
-#include <memory>
-#include <rclcpp/rclcpp.hpp>
+#pragma once
 
-int main(int argc, char *argv[])
+#include "ouagv_2d_slam/visibility_control_twod_slam.h"
+
+// Headers in ROS2
+#include <rclcpp/rclcpp.hpp>
+#include <memory> // shared_ptr in pub_
+
+namespace twod_slam
 {
-  rclcpp::init(argc, argv);
-  rclcpp::NodeOptions options;
-  auto component = std::make_shared<map_generator::MapGeneratorComponent>(options);
-  rclcpp::spin(component);
-  rclcpp::shutdown();
-  return 0;
+    class TwodSlamComponent : public rclcpp::Node
+    {
+    public:
+        TWOD_SLAM_TWOD_SLAM_COMPONENT_PUBLIC
+        explicit TwodSlamComponent(const rclcpp::NodeOptions &options);
+
+    private:
+        void aaaa();
+    };
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(map_generator)
+project(ouagv_2d_slam)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -13,10 +13,15 @@ ament_auto_add_library(map_generator_component SHARED
   src/map_generator_component.cpp
 )
 
+ament_auto_add_library(twod_slam_component SHARED
+  src/twod_slam_component.cpp
+)
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}/launch
 )
 
+# -------------------------------------------------------------
 target_compile_definitions(map_generator_component
   PRIVATE "MAP_GENERATOR_MAP_GENERATOR_COMPONENT_BUILDING_DLL"
 )
@@ -31,6 +36,24 @@ ament_auto_add_executable(map_generator_node
 target_link_libraries(map_generator_node
   map_generator_component
 )
+
+# -------------------------------------------------------------
+target_compile_definitions(twod_slam_component
+  PRIVATE "TWOD_SLAM_TWOD_SLAM_COMPONENT_BUILDING_DLL"
+)
+
+rclcpp_components_register_nodes(twod_slam_component
+  "twod_slam::TwodSlamComponent"
+)
+
+ament_auto_add_executable(twod_slam_node
+  src/twod_slam_node.cpp)
+
+target_link_libraries(twod_slam_node
+  twod_slam_component
+)
+
+# -------------------------------------------------------------
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
