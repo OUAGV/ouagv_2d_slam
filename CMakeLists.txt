@@ -7,6 +7,8 @@ endif()
 
 # find dependencies
 find_package(ament_cmake_auto REQUIRED)
+find_package(Eigen3 REQUIRED)
+include_directories(include ${EIGEN3_INCLUDE_DIR})
 ament_auto_find_build_dependencies()
 
 ament_auto_add_library(map_generator_component SHARED
@@ -51,6 +53,7 @@ ament_auto_add_executable(twod_slam_node
 
 target_link_libraries(twod_slam_node
   twod_slam_component
+  Eigen3::Eigen
 )
 
 # -------------------------------------------------------------
