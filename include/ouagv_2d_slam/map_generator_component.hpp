@@ -23,7 +23,6 @@
 #include <tf2/exceptions.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
-
 #include <algorithm>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>

@@ -18,6 +18,21 @@
 
 // Headers in ROS2
 #include <rclcpp/rclcpp.hpp>
+
+#include <math.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/exceptions.h>
+#include <tf2_ros/buffer.h>
+#include <tf2/buffer_core.h>
+#include <tf2/utils.h>
+#include <tf2_ros/transform_listener.h>
+#include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+
 #include <memory> // shared_ptr in pub_
 
 namespace twod_slam
@@ -29,6 +44,14 @@ namespace twod_slam
         explicit TwodSlamComponent(const rclcpp::NodeOptions &options);
 
     private:
-        void aaaa();
+        rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr Posesubscription_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr MarkerPublisher_;
+        rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+        std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+
+        void publishMarker(std::vector<geometry_msgs::msg::Point> &vec);
+        void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+        void resamplePoints(std::vector<geometry_msgs::msg::Point> &vec);
     };
 }

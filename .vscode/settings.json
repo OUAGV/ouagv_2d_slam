@@ -76,6 +76,10 @@
         "streambuf": "cpp",
         "thread": "cpp",
         "typeindex": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "csignal": "cpp",
+        "codecvt": "cpp",
+        "shared_mutex": "cpp",
+        "variant": "cpp"
     }
 }
