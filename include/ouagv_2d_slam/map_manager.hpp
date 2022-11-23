@@ -41,6 +41,9 @@ namespace map_manager
                        std::vector<pointcloud_manager::PointWithNormal> &point_vec);
         nav_msgs::msg::OccupancyGrid getMapData(rclcpp::Time stamp);
 
+        std::vector<pointcloud_manager::PointWithNormal>
+        getReferenceMap(double robot_x, double robot_y, double r);
+
     private:
         std::mutex map_mutex;
         std::vector<int> array_count_if_obstacle;

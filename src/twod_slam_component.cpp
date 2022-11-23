@@ -72,6 +72,7 @@ namespace twod_slam
     std::vector<pointcloud_manager::PointWithNormal> point_vec;
     pointCloudManager.scanToPoints(
         msg, point_vec);
+
     mapManager.updateMap(laserToMap, point_vec);
 
     if (publish_marker)

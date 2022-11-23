@@ -15,6 +15,9 @@ namespace map_manager
         const int cell_robot_y =
             floor((y + world_height * 0.5) / map_resolution);
 
+        int last_cell_point_x = 0;
+        int last_cell_point_y = 0;
+
         for (pointcloud_manager::PointWithNormal &elem : point_vec)
         {
             // cell座標系に変換（map座標系ではない）
@@ -24,6 +27,9 @@ namespace map_manager
             // gridに変換 ここでfloorを使うことで点群の数を削除してるとみなせる？
             const int cell_point_x = floor(point_x / map_resolution);
             const int cell_point_y = floor(point_y / map_resolution);
+
+                last_cell_point_x = cell_point_x;
+            last_cell_point_y = cell_point_y;
 
             plotProbablilityMap(cell_point_x, cell_robot_x, cell_point_y, cell_robot_y);
             const size_t index = getRasterScanIndex(map_width, cell_point_x, cell_point_y);
@@ -61,6 +67,31 @@ namespace map_manager
             index++;
         }
         return map_;
+    }
+
+    // 単位は全部メートル
+    std::vector<pointcloud_manager::PointWithNormal>
+    MapManager::getReferenceMap(double robot_x, double robot_y, double r)
+    {
+        const int cell_x = robot_x / map_resolution;
+        const int cell_y = robot_y / map_resolution;
+        const int cell_r = r / map_resolution;
+        const size_t max_index = probability_map_data.size();
+        const float threthold = 0.4f;
+        for (int y = cell_y; y < cell_r; y++)
+        {
+            for (int x = cell_x; x < cell_r; x++)
+            {
+                const size_t index = getRasterScanIndex(map_width, x, y);
+                if (index <= max_index)
+                {
+                    const float prob = probability_map_data.at(index);
+                    if (prob >= threthold)
+                    {
+                    }
+                }
+            }
+        }
     }
 
     void MapManager::plotProbablilityMap(int robot_x, int laser_x, int robot_y, int laser_y)
