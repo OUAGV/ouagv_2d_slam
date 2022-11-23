@@ -11,32 +11,12 @@ find_package(Eigen3 REQUIRED)
 include_directories(include ${EIGEN3_INCLUDE_DIR})
 ament_auto_find_build_dependencies()
 
-ament_auto_add_library(map_generator_component SHARED
-  src/map_generator_component.cpp
-)
-
 ament_auto_add_library(twod_slam_component SHARED
   src/twod_slam_component.cpp
 )
 
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}/launch
-)
-
-# -------------------------------------------------------------
-target_compile_definitions(map_generator_component
-  PRIVATE "MAP_GENERATOR_MAP_GENERATOR_COMPONENT_BUILDING_DLL"
-)
-
-rclcpp_components_register_nodes(map_generator_component
-  "map_generator::MapGeneratorComponent"
-)
-
-ament_auto_add_executable(map_generator_node
-  src/map_generator_node.cpp)
-
-target_link_libraries(map_generator_node
-  map_generator_component
 )
 
 # -------------------------------------------------------------
