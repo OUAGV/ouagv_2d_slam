@@ -80,6 +80,8 @@
         "csignal": "cpp",
         "codecvt": "cpp",
         "shared_mutex": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "lu": "cpp",
+        "regex": "cpp"
     }
 }

@@ -31,43 +31,36 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
-#include <memory>  // shared_ptr in pub_
+#include <memory> // shared_ptr in pub_
 #include <rclcpp/rclcpp.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
+#include "ouagv_2d_slam/pointcloud_manager.hpp"
+
 namespace twod_slam
 {
-enum NormalType {
-  UNKNOWN = 0,
-  LINE = 1,
-  CORNER = 2,
-  ISOLATE = 3,
-};
-struct PointWithNormal
-{
-  geometry_msgs::msg::Point point;
-  Eigen::Vector2f nx;
-  Eigen::Vector2f ny;
-  NormalType type;
-};
 
-class TwodSlamComponent : public rclcpp::Node
-{
-public:
-  TWOD_SLAM_TWOD_SLAM_COMPONENT_PUBLIC
-  explicit TwodSlamComponent(const rclcpp::NodeOptions & options);
+  class TwodSlamComponent : public rclcpp::Node
+  {
+  public:
+    TWOD_SLAM_TWOD_SLAM_COMPONENT_PUBLIC
+    explicit TwodSlamComponent(const rclcpp::NodeOptions &options);
 
-private:
-  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr Posesubscription_;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr MarkerPublisher_;
-  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  private:
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr Posesubscription_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr MarkerPublisher_;
+    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
+    pointcloud_manager::PointCloudManager pointCloudManager;
 
-  void publishMarker(std::vector<geometry_msgs::msg::Point> & vec);
-  void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
-  void icpScanMatching(std::vector<PointWithNormal> & vec, geometry_msgs::msg::Pose initialPose);
-  std::vector<PointWithNormal> resamplePoints(std::vector<geometry_msgs::msg::Point> & vec);
-};
-}  // namespace twod_slam
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::vector<pointcloud_manager::PointWithNormal> point_vec;
+
+    const bool publish_marker = true;
+
+    void publishMarker(std::vector<geometry_msgs::msg::Point> &vec);
+    void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+  };
+} // namespace twod_slam

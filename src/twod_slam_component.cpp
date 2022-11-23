@@ -21,115 +21,62 @@
 
 namespace twod_slam
 {
-TwodSlamComponent::TwodSlamComponent(const rclcpp::NodeOptions & options)
-: Node("twod_slam_node", options)
-{
-  MarkerPublisher_ = this->create_publisher<visualization_msgs::msg::Marker>("/marker", 10);
-  Scansubscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-    "/scan", rclcpp::QoS(10).best_effort().durability_volatile(),
-    std::bind(&TwodSlamComponent::Scan_topic_callback, this, std::placeholders::_1));
+  TwodSlamComponent::TwodSlamComponent(const rclcpp::NodeOptions &options)
+      : Node("twod_slam_node", options)
+  {
+    MarkerPublisher_ = this->create_publisher<visualization_msgs::msg::Marker>("/marker", 10);
+    Scansubscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+        "/scan", rclcpp::QoS(10).best_effort().durability_volatile(),
+        std::bind(&TwodSlamComponent::Scan_topic_callback, this, std::placeholders::_1));
 
-  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-}
-
-void TwodSlamComponent::publishMarker(std::vector<geometry_msgs::msg::Point> & vec)
-{
-  visualization_msgs::msg::Marker marker;
-  marker.header.frame_id = "map";
-  marker.header.stamp = get_clock()->now();
-  marker.action = visualization_msgs::msg::Marker::ADD;
-  marker.id = 0;
-  marker.type = visualization_msgs::msg::Marker::POINTS;
-  marker.points = vec;
-  marker.scale.x = 0.02;
-  marker.scale.y = 0.02;
-  marker.color.g = 1.0f;
-  marker.color.a = 1.0;
-  MarkerPublisher_->publish(marker);
-}
-
-void TwodSlamComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
-{
-  geometry_msgs::msg::TransformStamped laserToMap;
-  try {
-    laserToMap = tf_buffer_->lookupTransform("map", "lidar_link", tf2::TimePointZero);
-  } catch (const tf2::TransformException & ex) {
-    RCLCPP_INFO(get_logger(), "Could not transform %s to %s: %s", "laser", "map", ex.what());
-    return;
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
   }
-  std::vector<geometry_msgs::msg::Point> point_vec;
-  const float laser_yaw = tf2::getYaw(laserToMap.transform.rotation);
-  float current_angle = msg->angle_min;
-  for (float & scan : msg->ranges) {
-    if (msg->range_min <= scan && scan <= msg->range_max) {
-      geometry_msgs::msg::Point point;
-      point.x = scan * cos(current_angle + laser_yaw) + laserToMap.transform.translation.x;
-      point.y = scan * sin(current_angle + laser_yaw) + laserToMap.transform.translation.y;
-      point_vec.emplace_back(point);
-      current_angle += msg->angle_increment;
+
+  void TwodSlamComponent::publishMarker(std::vector<geometry_msgs::msg::Point> &vec)
+  {
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = "map";
+    marker.header.stamp = get_clock()->now();
+    marker.action = visualization_msgs::msg::Marker::ADD;
+    marker.id = 0;
+    marker.type = visualization_msgs::msg::Marker::POINTS;
+    marker.points = vec;
+    marker.scale.x = 0.02;
+    marker.scale.y = 0.02;
+    marker.color.g = 1.0f;
+    marker.color.a = 1.0;
+    MarkerPublisher_->publish(marker);
+  }
+
+  void TwodSlamComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+  {
+    geometry_msgs::msg::TransformStamped laserToMap;
+    try
+    {
+      laserToMap = tf_buffer_->lookupTransform("map", "lidar_link", tf2::TimePointZero);
     }
-  }
-  std::vector<PointWithNormal> resampled_points = resamplePoints(point_vec);
-}
-
-std::vector<PointWithNormal> TwodSlamComponent::resamplePoints(
-  std::vector<geometry_msgs::msg::Point> & vec)
-{
-  const float point_interval_m = 0.05f;            // [m]
-  const float interpolate_threthold_max_m = 0.3f;  // [m]
-  if (vec.size() == 0) {
-    return;
-  }
-  float distance_sum = 0.f;
-  geometry_msgs::msg::Point last_point = vec.at(0);
-  geometry_msgs::msg::Point new_point = vec.at(0);
-  std::vector<PointWithNormal> interpolated_points;
-  std::vector<geometry_msgs::msg::Point> point_vec_for_marker;
-  PointWithNormal firstPoint;
-  firstPoint.point = last_point;
-  interpolated_points.emplace_back(firstPoint);
-
-  for (int i = 1; i < static_cast<int>(vec.size()); i++) {
-    const geometry_msgs::msg::Point current_point = vec.at(i);
-    const float dx = current_point.x - last_point.x;
-    const float dy = current_point.y - last_point.y;
-    const float distance_between_neighbor_points = sqrt(pow(dx, 2) + pow(dy, 2));
-
-    bool exists = false;
-    bool isInserted = false;
-    if (distance_sum + distance_between_neighbor_points < point_interval_m) {
-      distance_sum += distance_between_neighbor_points;
-    } else if (distance_sum + distance_between_neighbor_points >= interpolate_threthold_max_m) {
-      new_point = current_point;
-      exists = true;
-    } else {
-      const float ratio = (point_interval_m - distance_sum) / distance_between_neighbor_points;
-
-      new_point.x = dx * ratio + last_point.x;
-      new_point.y = dy * ratio + last_point.y;
-      exists = true;
-      isInserted = true;
+    catch (const tf2::TransformException &ex)
+    {
+      RCLCPP_INFO(get_logger(), "Could not transform %s to %s: %s", "laser", "map", ex.what());
+      return;
     }
-    if (exists) {
-      PointWithNormal new_point_with_normal;
-      new_point_with_normal.point = new_point;
-      interpolated_points.emplace_back(new_point_with_normal);
-      point_vec_for_marker.emplace_back(new_point);
-      last_point = new_point;
-      distance_sum = 0;
-      if (isInserted) {
-        i--;
+    pointCloudManager.scanToPoints(
+        msg, point_vec);
+    if (publish_marker)
+    {
+      std::vector<geometry_msgs::msg::Point> pub_vec;
+      pub_vec.resize(point_vec.size());
+      for (size_t i = 0; i < point_vec.size(); i++)
+      {
+        // if (vec.at(i).type != pointcloud_manager::ptype::ISOLATE)
+        //   RCLCPP_INFO(get_logger(), "i : %d nx : %lf ny : %lf\n", i, vec.at(i).normal(0), vec.at(i).normal(1));
+        pub_vec.at(i) = point_vec.at(i).point;
       }
-    } else {
-      last_point = current_point;
+      publishMarker(pub_vec);
     }
   }
 
-  publishMarker(point_vec_for_marker);
-  return interpolated_points;
-}
-
-}  // namespace twod_slam
+} // namespace twod_slam
 
 RCLCPP_COMPONENTS_REGISTER_NODE(twod_slam::TwodSlamComponent)

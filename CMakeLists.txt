@@ -49,7 +49,8 @@ rclcpp_components_register_nodes(twod_slam_component
 )
 
 ament_auto_add_executable(twod_slam_node
-  src/twod_slam_node.cpp)
+  src/twod_slam_node.cpp
+  src/impl/pointcloud_manager.cpp)
 
 target_link_libraries(twod_slam_node
   twod_slam_component
