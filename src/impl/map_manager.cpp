@@ -15,9 +15,6 @@ namespace map_manager
         const int cell_robot_y =
             floor((y + world_height * 0.5) / map_resolution);
 
-        int last_cell_point_x = 0;
-        int last_cell_point_y = 0;
-
         for (pointcloud_manager::PointWithNormal &elem : point_vec)
         {
             // cell座標系に変換（map座標系ではない）
@@ -27,18 +24,19 @@ namespace map_manager
             // gridに変換 ここでfloorを使うことで点群の数を削除してるとみなせる？
             const int cell_point_x = floor(point_x / map_resolution);
             const int cell_point_y = floor(point_y / map_resolution);
-
-                last_cell_point_x = cell_point_x;
-            last_cell_point_y = cell_point_y;
-
-            plotProbablilityMap(cell_point_x, cell_robot_x, cell_point_y, cell_robot_y);
             const size_t index = getRasterScanIndex(map_width, cell_point_x, cell_point_y);
-            array_count_if_obstacle.at(index) += 1;
-            array_count_all_hit.at(index) += 1;
-            const float prob = static_cast<float>(array_count_if_obstacle.at(index)) /
-                               static_cast<float>(array_count_all_hit.at(index));
+            globalCellMap.at(index).vec.emplace_back(elem);
+            if (globalCellMap.at(index).vec.size() > 10)
+            {
+                globalCellMap.at(index).vec.erase(globalCellMap.at(index).vec.begin());
+            }
+            plotProbablilityMap(cell_point_x, cell_robot_x, cell_point_y, cell_robot_y);
+            globalCellMap.at(index).existed_num += 1;
+            globalCellMap.at(index).scanned_num += 1;
+            const float prob = static_cast<float>(globalCellMap.at(index).existed_num) /
+                               static_cast<float>(globalCellMap.at(index).scanned_num);
             std::lock_guard<std::mutex> lock(map_mutex);
-            probability_map_data.at(index) = log_odd(prob);
+            globalCellMap.at(index).prob = log_odd(prob);
         }
     }
 
@@ -60,38 +58,13 @@ namespace map_manager
         std::fill(map_.data.begin(), map_.data.end(), unknown);
         int index = 0;
         std::lock_guard<std::mutex> lock(map_mutex);
-        for (float &prob : probability_map_data)
+        for (CellWithProb &elem : globalCellMap)
         {
-            const int integer_prob = static_cast<int>(round(get_prob_from_log_odd(prob) * 100.f));
+            const int integer_prob = static_cast<int>(round(get_prob_from_log_odd(elem.prob) * 100.f));
             map_.data.at(index) = integer_prob;
             index++;
         }
         return map_;
-    }
-
-    // 単位は全部メートル
-    std::vector<pointcloud_manager::PointWithNormal>
-    MapManager::getReferenceMap(double robot_x, double robot_y, double r)
-    {
-        const int cell_x = robot_x / map_resolution;
-        const int cell_y = robot_y / map_resolution;
-        const int cell_r = r / map_resolution;
-        const size_t max_index = probability_map_data.size();
-        const float threthold = 0.4f;
-        for (int y = cell_y; y < cell_r; y++)
-        {
-            for (int x = cell_x; x < cell_r; x++)
-            {
-                const size_t index = getRasterScanIndex(map_width, x, y);
-                if (index <= max_index)
-                {
-                    const float prob = probability_map_data.at(index);
-                    if (prob >= threthold)
-                    {
-                    }
-                }
-            }
-        }
     }
 
     void MapManager::plotProbablilityMap(int robot_x, int laser_x, int robot_y, int laser_y)
@@ -138,17 +111,10 @@ namespace map_manager
 
     void MapManager::updateProb(size_t index)
     {
-        assert(index < probability_map_data.size());
-        array_count_all_hit.at(index) = array_count_all_hit.at(index) + 1;
-        const float prob = static_cast<float>(array_count_if_obstacle.at(index)) /
-                           static_cast<float>(array_count_all_hit.at(index));
-        if (prob > 0.f)
-        {
-            probability_map_data.at(index) = log_odd(prob);
-        }
-        else
-        {
-            probability_map_data.at(index) = log_odd(unOccupied);
-        }
+        assert(index < globalCellMap.size());
+        globalCellMap.at(index).scanned_num += 1;
+        const float prob = static_cast<float>(globalCellMap.at(index).existed_num) /
+                           static_cast<float>(globalCellMap.at(index).scanned_num);
+        globalCellMap.at(index).prob = prob > 0.f ? log_odd(prob) : log_odd(unOccupied);
     }
 }

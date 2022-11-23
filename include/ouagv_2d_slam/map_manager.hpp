@@ -22,17 +22,26 @@
 
 namespace map_manager
 {
+    struct CellWithProb
+    {
+        std::vector<pointcloud_manager::PointWithNormal> vec;
+        int scanned_num;
+        int existed_num;
+        float prob;
+    };
+
     class MapManager
     {
     public:
         MapManager()
         {
-            probability_map_data.resize(map_height * map_width);
-            array_count_all_hit.resize(map_height * map_width);
-            std::fill(array_count_all_hit.begin(), array_count_all_hit.end(), 0);
-            array_count_if_obstacle.resize(map_height * map_width);
-            std::fill(array_count_if_obstacle.begin(), array_count_if_obstacle.end(), 0);
-            std::fill(probability_map_data.begin(), probability_map_data.end(), log_odd(priorProbability));
+            globalCellMap.resize(map_width * map_height);
+            for (CellWithProb &elem : globalCellMap)
+            {
+                elem.existed_num = 0;
+                elem.scanned_num = 0;
+                elem.prob = log_odd(priorProbability);
+            }
         };
         ~MapManager(){};
 
@@ -40,15 +49,10 @@ namespace map_manager
         void updateMap(geometry_msgs::msg::TransformStamped &estimated_pose,
                        std::vector<pointcloud_manager::PointWithNormal> &point_vec);
         nav_msgs::msg::OccupancyGrid getMapData(rclcpp::Time stamp);
-
-        std::vector<pointcloud_manager::PointWithNormal>
-        getReferenceMap(double robot_x, double robot_y, double r);
+        std::vector<CellWithProb> globalCellMap;
 
     private:
         std::mutex map_mutex;
-        std::vector<int> array_count_if_obstacle;
-        std::vector<int> array_count_all_hit;
-        std::vector<float> probability_map_data;
 
         const float world_width = 100.f;                      // [m]
         const float world_height = 100.f;                     // [m]
