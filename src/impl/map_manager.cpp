@@ -15,7 +15,6 @@ namespace map_manager
         const int cell_robot_y =
             floor((y + world_height * 0.5) / map_resolution);
 
-        std::lock_guard<std::mutex> lock(map_mutex);
         for (pointcloud_manager::PointWithNormal &elem : point_vec)
         {
             // cell座標系に変換（map座標系ではない）
@@ -28,11 +27,11 @@ namespace map_manager
 
             plotProbablilityMap(cell_point_x, cell_robot_x, cell_point_y, cell_robot_y);
             const size_t index = getRasterScanIndex(map_width, cell_point_x, cell_point_y);
-            float current_prob = probability_map_data.at(index);
             array_count_if_obstacle.at(index) += 1;
             array_count_all_hit.at(index) += 1;
             const float prob = static_cast<float>(array_count_if_obstacle.at(index)) /
                                static_cast<float>(array_count_all_hit.at(index));
+            std::lock_guard<std::mutex> lock(map_mutex);
             probability_map_data.at(index) = log_odd(prob);
         }
     }
@@ -108,7 +107,7 @@ namespace map_manager
 
     void MapManager::updateProb(size_t index)
     {
-        assert(0 <= index && index < probability_map_data.size());
+        assert(index < probability_map_data.size());
         array_count_all_hit.at(index) = array_count_all_hit.at(index) + 1;
         const float prob = static_cast<float>(array_count_if_obstacle.at(index)) /
                            static_cast<float>(array_count_all_hit.at(index));

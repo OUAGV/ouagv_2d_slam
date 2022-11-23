@@ -25,12 +25,16 @@ namespace twod_slam
       : Node("twod_slam_node", options)
   {
     MarkerPublisher_ = this->create_publisher<visualization_msgs::msg::Marker>("/marker", 10);
+    OccupancyGridpublisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/map", 1);
     Scansubscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "/scan", rclcpp::QoS(10).best_effort().durability_volatile(),
         std::bind(&TwodSlamComponent::Scan_topic_callback, this, std::placeholders::_1));
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+    using namespace std::chrono_literals;
+    // 1秒ごとにOccupancyGridMapをpublishする
+    timer_ = this->create_wall_timer(500ms, std::bind(&TwodSlamComponent::publishMap, this));
   }
 
   void TwodSlamComponent::publishMarker(std::vector<geometry_msgs::msg::Point> &vec)
@@ -49,6 +53,10 @@ namespace twod_slam
     MarkerPublisher_->publish(marker);
   }
 
+  void TwodSlamComponent::publishMap()
+  {
+    OccupancyGridpublisher_->publish(mapManager.getMapData(get_clock()->now()));
+  }
   void TwodSlamComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
   {
     geometry_msgs::msg::TransformStamped laserToMap;
@@ -61,8 +69,11 @@ namespace twod_slam
       RCLCPP_INFO(get_logger(), "Could not transform %s to %s: %s", "laser", "map", ex.what());
       return;
     }
+    std::vector<pointcloud_manager::PointWithNormal> point_vec;
     pointCloudManager.scanToPoints(
         msg, point_vec);
+    mapManager.updateMap(laserToMap, point_vec);
+
     if (publish_marker)
     {
       std::vector<geometry_msgs::msg::Point> pub_vec;

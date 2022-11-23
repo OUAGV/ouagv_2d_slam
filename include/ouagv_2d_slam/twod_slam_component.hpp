@@ -38,6 +38,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 
 #include "ouagv_2d_slam/pointcloud_manager.hpp"
+#include "ouagv_2d_slam/map_manager.hpp"
 
 namespace twod_slam
 {
@@ -52,15 +53,19 @@ namespace twod_slam
     rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr Posesubscription_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr MarkerPublisher_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
+    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr OccupancyGridpublisher_;
+    rclcpp::TimerBase::SharedPtr timer_;
+
     pointcloud_manager::PointCloudManager pointCloudManager;
-
-    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    map_manager::MapManager mapManager;
+    std::shared_ptr<tf2_ros::TransformListener>
+        tf_listener_;
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-    std::vector<pointcloud_manager::PointWithNormal> point_vec;
 
-    const bool publish_marker = true;
+    const bool publish_marker = false;
 
     void publishMarker(std::vector<geometry_msgs::msg::Point> &vec);
     void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+    void publishMap();
   };
 } // namespace twod_slam

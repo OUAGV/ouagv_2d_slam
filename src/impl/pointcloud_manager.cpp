@@ -71,6 +71,7 @@ namespace pointcloud_manager
             if (exists)
             {
                 PointWithNormal new_point_with_normal;
+                new_point_with_normal.frame_id = laser_frame;
                 new_point_with_normal.point = new_point;
                 interpolated_points.emplace_back(new_point_with_normal);
                 last_point = new_point;
