@@ -29,7 +29,6 @@ namespace twod_slam
     Scansubscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
         "/scan", rclcpp::QoS(10).best_effort().durability_volatile(),
         std::bind(&TwodSlamComponent::Scan_topic_callback, this, std::placeholders::_1));
-
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     using namespace std::chrono_literals;
@@ -57,6 +56,7 @@ namespace twod_slam
   {
     OccupancyGridpublisher_->publish(mapManager.getMapData(get_clock()->now()));
   }
+
   void TwodSlamComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
   {
     geometry_msgs::msg::TransformStamped laserToMap;
@@ -70,20 +70,25 @@ namespace twod_slam
       return;
     }
     std::vector<pointcloud_manager::PointWithNormal> point_vec;
-    pointCloudManager.scanToPoints(
-        msg, point_vec);
-
+    pointCloudManager.scanToPoints(msg, point_vec);
+    if (is_initial_scan_sub)
+    {
+      is_initial_scan_sub = false;
+      mapManager.updateMap(laserToMap, point_vec);
+      return;
+    }
+    /**
+     * ここにスキャンマッチングの処理を入れる
+     *
+     */
+    scanMatcher.estimatePose(mapManager.globalCellMap, point_vec, laserToMap);
     mapManager.updateMap(laserToMap, point_vec);
-
     if (publish_marker)
     {
       std::vector<geometry_msgs::msg::Point> pub_vec;
-      pub_vec.resize(point_vec.size());
-      for (size_t i = 0; i < point_vec.size(); i++)
+      for (map_manager::CellWithProb &cell : mapManager.globalCellMap)
       {
-        // if (vec.at(i).type != pointcloud_manager::ptype::ISOLATE)
-        //   RCLCPP_INFO(get_logger(), "i : %d nx : %lf ny : %lf\n", i, vec.at(i).normal(0), vec.at(i).normal(1));
-        pub_vec.at(i) = point_vec.at(i).point;
+        pub_vec.emplace_back(cell.point.point);
       }
       publishMarker(pub_vec);
     }

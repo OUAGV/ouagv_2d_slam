@@ -24,7 +24,7 @@ namespace map_manager
 {
     struct CellWithProb
     {
-        std::vector<pointcloud_manager::PointWithNormal> vec;
+        pointcloud_manager::PointWithNormal point;
         int scanned_num;
         int existed_num;
         float prob;
@@ -41,6 +41,11 @@ namespace map_manager
                 elem.existed_num = 0;
                 elem.scanned_num = 0;
                 elem.prob = log_odd(priorProbability);
+                elem.point.frame_id = "map";
+                elem.point.point.x = 0.0;
+                elem.point.point.y = 0.0;
+                elem.point.normal = Eigen::Vector2d::Zero(2);
+                elem.point.type = pointcloud_manager::LINE;
             }
         };
         ~MapManager(){};
@@ -48,6 +53,7 @@ namespace map_manager
         // estimated_pose map <- laser
         void updateMap(geometry_msgs::msg::TransformStamped &estimated_pose,
                        std::vector<pointcloud_manager::PointWithNormal> &point_vec);
+
         nav_msgs::msg::OccupancyGrid getMapData(rclcpp::Time stamp);
         std::vector<CellWithProb> globalCellMap;
 
@@ -64,8 +70,7 @@ namespace map_manager
         const float priorProbability = 0.5f;
         const float l0 = 0.5f;
         const int unknown = -1;
-        const float inverse_range_sensor_model_alpha = 0.1f;
-        const bool easy_calculate_prob_method = true;
+        const size_t cell_vec_length = 10;
         std::string map_frame = "map";
         std::string laser_frame = "lidar_link";
 

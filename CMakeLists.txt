@@ -32,6 +32,7 @@ ament_auto_add_executable(twod_slam_node
   src/twod_slam_node.cpp
   src/impl/pointcloud_manager.cpp
   src/impl/map_manager.cpp
+  src/impl/icp_scan_matching.cpp
 )
 
 target_link_libraries(twod_slam_node

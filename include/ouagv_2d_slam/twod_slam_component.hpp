@@ -36,9 +36,9 @@
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <visualization_msgs/msg/marker.hpp>
-
 #include "ouagv_2d_slam/pointcloud_manager.hpp"
 #include "ouagv_2d_slam/map_manager.hpp"
+#include "ouagv_2d_slam/icp_scan_matching.hpp"
 
 namespace twod_slam
 {
@@ -58,11 +58,14 @@ namespace twod_slam
 
     pointcloud_manager::PointCloudManager pointCloudManager;
     map_manager::MapManager mapManager;
+    icp_scan_matching::IcpScanMatching scanMatcher;
+
     std::shared_ptr<tf2_ros::TransformListener>
         tf_listener_;
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
     const bool publish_marker = false;
+    bool is_initial_scan_sub = true;
 
     void publishMarker(std::vector<geometry_msgs::msg::Point> &vec);
     void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);

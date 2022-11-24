@@ -15,27 +15,34 @@ namespace map_manager
         const int cell_robot_y =
             floor((y + world_height * 0.5) / map_resolution);
 
+        Eigen::Matrix2d rot;
+        rot << cos(yaw), -sin(yaw),
+            sin(yaw), cos(yaw);
+
         for (pointcloud_manager::PointWithNormal &elem : point_vec)
         {
-            // cell座標系に変換（map座標系ではない）
-            const double point_x = elem.point.x * cos(yaw) - elem.point.y * sin(yaw) + x + world_width * 0.5f;
-            const double point_y = elem.point.x * sin(yaw) + elem.point.y * cos(yaw) + y + world_height * 0.5f;
+            // map座標系に変換
+            const double point_x = elem.point.x * cos(yaw) - elem.point.y * sin(yaw) + x;
+            const double point_y = elem.point.x * sin(yaw) + elem.point.y * cos(yaw) + y;
 
             // gridに変換 ここでfloorを使うことで点群の数を削除してるとみなせる？
-            const int cell_point_x = floor(point_x / map_resolution);
-            const int cell_point_y = floor(point_y / map_resolution);
+            const int cell_point_x = floor((point_x + world_width * 0.5f) / map_resolution);
+            const int cell_point_y = floor((point_y + world_height * 0.5f) / map_resolution);
             const size_t index = getRasterScanIndex(map_width, cell_point_x, cell_point_y);
-            globalCellMap.at(index).vec.emplace_back(elem);
-            if (globalCellMap.at(index).vec.size() > 10)
-            {
-                globalCellMap.at(index).vec.erase(globalCellMap.at(index).vec.begin());
-            }
+
+            elem.point.x = point_x;
+            elem.point.y = point_y;
+            elem.normal = rot * elem.normal;
+            elem.frame_id = "map";
+            globalCellMap.at(index).point = elem;
+
+            std::lock_guard<std::mutex> lock(map_mutex);
             plotProbablilityMap(cell_point_x, cell_robot_x, cell_point_y, cell_robot_y);
             globalCellMap.at(index).existed_num += 1;
             globalCellMap.at(index).scanned_num += 1;
             const float prob = static_cast<float>(globalCellMap.at(index).existed_num) /
                                static_cast<float>(globalCellMap.at(index).scanned_num);
-            std::lock_guard<std::mutex> lock(map_mutex);
+
             globalCellMap.at(index).prob = log_odd(prob);
         }
     }
