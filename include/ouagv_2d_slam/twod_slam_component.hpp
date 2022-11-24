@@ -31,43 +31,47 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
-#include <memory>  // shared_ptr in pub_
+#include <memory> // shared_ptr in pub_
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <visualization_msgs/msg/marker.hpp>
-
+#include <tf2_ros/transform_broadcaster.h>
 #include "ouagv_2d_slam/icp_scan_matching.hpp"
 #include "ouagv_2d_slam/map_manager.hpp"
 #include "ouagv_2d_slam/pointcloud_manager.hpp"
 
 namespace twod_slam
 {
-class TwodSlamComponent : public rclcpp::Node
-{
-public:
-  TWOD_SLAM_TWOD_SLAM_COMPONENT_PUBLIC
-  explicit TwodSlamComponent(const rclcpp::NodeOptions & options);
+  class TwodSlamComponent : public rclcpp::Node
+  {
+  public:
+    TWOD_SLAM_TWOD_SLAM_COMPONENT_PUBLIC
+    explicit TwodSlamComponent(const rclcpp::NodeOptions &options);
 
-private:
-  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr Posesubscription_;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr MarkerPublisher_;
-  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
-  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr OccupancyGridpublisher_;
-  rclcpp::TimerBase::SharedPtr timer_;
+  private:
+    rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr Posesubscription_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr MarkerPublisher_;
+    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr Scansubscription_;
+    rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr OccupancyGridpublisher_;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
-  pointcloud_manager::PointCloudManager pointCloudManager;
-  map_manager::MapManager mapManager;
-  icp_scan_matching::IcpScanMatching scanMatcher;
+    pointcloud_manager::PointCloudManager pointCloudManager;
+    map_manager::MapManager mapManager;
+    icp_scan_matching::IcpScanMatching scanMatcher;
 
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
-  const bool publish_marker = false;
-  bool is_initial_scan_sub = true;
+    const bool publish_marker = false;
+    bool is_initial_scan_sub = true;
 
-  void publishMarker(std::vector<geometry_msgs::msg::Point> & vec);
-  void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
-  void publishMap();
-};
-}  // namespace twod_slam
+    void publishMarker(std::vector<geometry_msgs::msg::Point> &vec);
+    void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+    void publishMap();
+    geometry_msgs::msg::TransformStamped poseToTransformStamped(geometry_msgs::msg::PoseWithCovarianceStamped &pose);
+    void broadcastTf(geometry_msgs::msg::TransformStamped &laserToMap,
+                     geometry_msgs::msg::TransformStamped &laserToOdom);
+  };
+} // namespace twod_slam

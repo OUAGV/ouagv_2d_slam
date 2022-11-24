@@ -35,7 +35,7 @@ def generate_launch_description():
                        '0', '0', '0', '0', '0', '0', 'odom', 'map'])
     return LaunchDescription([
         simulator,
-        map_to_odom,
+        # map_to_odom,
         ekf,
         scanmatching
     ])
