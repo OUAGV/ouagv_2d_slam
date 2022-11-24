@@ -21,79 +21,73 @@
 
 namespace twod_slam
 {
-  TwodSlamComponent::TwodSlamComponent(const rclcpp::NodeOptions &options)
-      : Node("twod_slam_node", options)
-  {
-    MarkerPublisher_ = this->create_publisher<visualization_msgs::msg::Marker>("/marker", 10);
-    OccupancyGridpublisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/map", 1);
-    Scansubscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-        "/scan", rclcpp::QoS(10).best_effort().durability_volatile(),
-        std::bind(&TwodSlamComponent::Scan_topic_callback, this, std::placeholders::_1));
-    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-    using namespace std::chrono_literals;
-    // 1秒ごとにOccupancyGridMapをpublishする
-    timer_ = this->create_wall_timer(500ms, std::bind(&TwodSlamComponent::publishMap, this));
-  }
+TwodSlamComponent::TwodSlamComponent(const rclcpp::NodeOptions & options)
+: Node("twod_slam_node", options)
+{
+  MarkerPublisher_ = this->create_publisher<visualization_msgs::msg::Marker>("/marker", 10);
+  OccupancyGridpublisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>("/map", 1);
+  Scansubscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+    "/scan", rclcpp::QoS(10).best_effort().durability_volatile(),
+    std::bind(&TwodSlamComponent::Scan_topic_callback, this, std::placeholders::_1));
+  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+  using namespace std::chrono_literals;
+  // 1秒ごとにOccupancyGridMapをpublishする
+  timer_ = this->create_wall_timer(500ms, std::bind(&TwodSlamComponent::publishMap, this));
+}
 
-  void TwodSlamComponent::publishMarker(std::vector<geometry_msgs::msg::Point> &vec)
-  {
-    visualization_msgs::msg::Marker marker;
-    marker.header.frame_id = "map";
-    marker.header.stamp = get_clock()->now();
-    marker.action = visualization_msgs::msg::Marker::ADD;
-    marker.id = 0;
-    marker.type = visualization_msgs::msg::Marker::POINTS;
-    marker.points = vec;
-    marker.scale.x = 0.02;
-    marker.scale.y = 0.02;
-    marker.color.g = 1.0f;
-    marker.color.a = 1.0;
-    MarkerPublisher_->publish(marker);
-  }
+void TwodSlamComponent::publishMarker(std::vector<geometry_msgs::msg::Point> & vec)
+{
+  visualization_msgs::msg::Marker marker;
+  marker.header.frame_id = "map";
+  marker.header.stamp = get_clock()->now();
+  marker.action = visualization_msgs::msg::Marker::ADD;
+  marker.id = 0;
+  marker.type = visualization_msgs::msg::Marker::POINTS;
+  marker.points = vec;
+  marker.scale.x = 0.02;
+  marker.scale.y = 0.02;
+  marker.color.g = 1.0f;
+  marker.color.a = 1.0;
+  MarkerPublisher_->publish(marker);
+}
 
-  void TwodSlamComponent::publishMap()
-  {
-    OccupancyGridpublisher_->publish(mapManager.getMapData(get_clock()->now()));
-  }
+void TwodSlamComponent::publishMap()
+{
+  OccupancyGridpublisher_->publish(mapManager.getMapData(get_clock()->now()));
+}
 
-  void TwodSlamComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
-  {
-    geometry_msgs::msg::TransformStamped laserToMap;
-    try
-    {
-      laserToMap = tf_buffer_->lookupTransform("map", "lidar_link", tf2::TimePointZero);
-    }
-    catch (const tf2::TransformException &ex)
-    {
-      RCLCPP_INFO(get_logger(), "Could not transform %s to %s: %s", "laser", "map", ex.what());
-      return;
-    }
-    std::vector<pointcloud_manager::PointWithNormal> point_vec;
-    pointCloudManager.scanToPoints(msg, point_vec);
-    if (is_initial_scan_sub)
-    {
-      is_initial_scan_sub = false;
-      mapManager.updateMap(laserToMap, point_vec);
-      return;
-    }
-    /**
+void TwodSlamComponent::Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+{
+  geometry_msgs::msg::TransformStamped laserToMap;
+  try {
+    laserToMap = tf_buffer_->lookupTransform("map", "lidar_link", tf2::TimePointZero);
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_INFO(get_logger(), "Could not transform %s to %s: %s", "laser", "map", ex.what());
+    return;
+  }
+  std::vector<pointcloud_manager::PointWithNormal> point_vec;
+  pointCloudManager.scanToPoints(msg, point_vec);
+  if (is_initial_scan_sub) {
+    is_initial_scan_sub = false;
+    mapManager.updateMap(laserToMap, point_vec);
+    return;
+  }
+  /**
      * ここにスキャンマッチングの処理を入れる
      *
      */
-    scanMatcher.estimatePose(mapManager.globalCellMap, point_vec, laserToMap);
-    mapManager.updateMap(laserToMap, point_vec);
-    if (publish_marker)
-    {
-      std::vector<geometry_msgs::msg::Point> pub_vec;
-      for (map_manager::CellWithProb &cell : mapManager.globalCellMap)
-      {
-        pub_vec.emplace_back(cell.point.point);
-      }
-      publishMarker(pub_vec);
+  scanMatcher.estimatePose(mapManager.globalCellMap, point_vec, laserToMap);
+  mapManager.updateMap(laserToMap, point_vec);
+  if (publish_marker) {
+    std::vector<geometry_msgs::msg::Point> pub_vec;
+    for (map_manager::CellWithProb & cell : mapManager.globalCellMap) {
+      pub_vec.emplace_back(cell.point.point);
     }
+    publishMarker(pub_vec);
   }
+}
 
-} // namespace twod_slam
+}  // namespace twod_slam
 
 RCLCPP_COMPONENTS_REGISTER_NODE(twod_slam::TwodSlamComponent)
