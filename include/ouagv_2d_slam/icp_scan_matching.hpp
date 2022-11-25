@@ -15,6 +15,7 @@ namespace icp_scan_matching
         std::vector<pointcloud_manager::PointWithNormal> &scanned_points,
         geometry_msgs::msg::TransformStamped &predict_pose,
         rclcpp::Time stamp);
+    bool loop_limited = false;
 
   private:
     const float world_width = 100.f;    // [m]
@@ -27,7 +28,7 @@ namespace icp_scan_matching
     // 点のペア作成の際、このセルの幅で四方を探す
     const int cell_r = 2; // [cell]
 
-    double estimated_x = 0.f;
+        double estimated_x = 0.f;
     double estimated_y = 0.f;
     double estimated_theta = 0.f;
 

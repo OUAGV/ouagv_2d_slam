@@ -64,6 +64,15 @@ namespace twod_slam
     try
     {
       laserToMap = tf_buffer_->lookupTransform("odom", "lidar_link", tf2::TimePointZero);
+      laserToMap.transform.translation.x += last_diff_x;
+      laserToMap.transform.translation.y += last_diff_y;
+      tf2::Quaternion quat;
+      const double current_yaw = tf2::getYaw(laserToMap.transform.rotation);
+      quat.setRPY(0, 0, current_yaw + last_diff_yaw);
+      laserToMap.transform.rotation.x = quat.getX();
+      laserToMap.transform.rotation.y = quat.getY();
+      laserToMap.transform.rotation.z = quat.getZ();
+      laserToMap.transform.rotation.w = quat.getW();
     }
     catch (const tf2::TransformException &ex)
     {
@@ -83,16 +92,24 @@ namespace twod_slam
      *
      */
     geometry_msgs::msg::PoseWithCovarianceStamped estimated_pose =
-        scanMatcher.estimatePose(mapManager.globalCellMap, point_vec, laserToMap, get_clock()->now());
+        scanMatcher.estimatePose(mapManager.globalCellMap, point_vec, laserToMap, laserToMap.header.stamp);
     geometry_msgs::msg::TransformStamped estimated_laser_to_map = poseToTransformStamped(estimated_pose);
+    // last_estimated_pose = estimated_laser_to_map;
+
     broadcastTf(estimated_laser_to_map, laserToMap);
+    // broadcastTf(laserToMap, laserToMap);
+
     mapManager.updateMap(estimated_laser_to_map, point_vec);
+    // mapManager.updateMap(laserToMap, point_vec);
     if (publish_marker)
     {
-      std::vector<geometry_msgs::msg::Point> pub_vec;
-      for (map_manager::CellWithProb &cell : mapManager.globalCellMap)
+      geometry_msgs::msg::Point estimated_point;
+      estimated_point.x = estimated_laser_to_map.transform.translation.x;
+      estimated_point.y = estimated_laser_to_map.transform.translation.y;
+      pub_vec.emplace_back(estimated_point);
+      if (pub_vec.size() > 100)
       {
-        pub_vec.emplace_back(cell.point.point);
+        pub_vec.erase(pub_vec.begin());
       }
       publishMarker(pub_vec);
     }
@@ -130,6 +147,11 @@ namespace twod_slam
     transformStamped.transform.rotation.z = quat.getZ();
     transformStamped.transform.rotation.w = quat.getW();
     tf_broadcaster_->sendTransform(transformStamped);
+
+    last_diff_x = transformStamped.transform.translation.x;
+    last_diff_y = transformStamped.transform.translation.y;
+    last_diff_yaw = map_yaw - odom_yaw;
+    std::cout << "diff : " << last_diff_x << "m  " << last_diff_y << "m " << last_diff_yaw << "rad " << std::endl;
   }
 
 } // namespace twod_slam

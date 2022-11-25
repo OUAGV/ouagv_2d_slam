@@ -109,6 +109,7 @@ namespace icp_scan_matching
         // 前回のコストと比べてどれくらい変化したか
         const double cost_diff_threthold = 0.5;
         const int loop_count_limit = 50;
+        loop_limited = false;
         int count = 0;
         if (reference_points.size() < 10)
         {
@@ -146,6 +147,7 @@ namespace icp_scan_matching
         if (count == loop_count_limit)
         {
             std::cout << "point optimize loop count is up to limitation." << std::endl;
+            loop_limited = true;
         }
         else
         {

@@ -67,7 +67,14 @@ namespace twod_slam
     const bool publish_marker = false;
     bool is_initial_scan_sub = true;
 
-    void publishMarker(std::vector<geometry_msgs::msg::Point> &vec);
+    double last_diff_x = 0.0;
+    double last_diff_y = 0.0;
+    double last_diff_yaw = 0.0;
+    geometry_msgs::msg::TransformStamped last_estimated_pose;
+    std::vector<geometry_msgs::msg::Point> pub_vec;
+
+    void
+    publishMarker(std::vector<geometry_msgs::msg::Point> &vec);
     void Scan_topic_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
     void publishMap();
     geometry_msgs::msg::TransformStamped poseToTransformStamped(geometry_msgs::msg::PoseWithCovarianceStamped &pose);
