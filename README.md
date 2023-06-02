@@ -1,4 +1,9 @@
-# map_generator
+# ouagv_2d_slam
+ICPマッチングでSLAMするプログラムですが、動きません
+## environment
+- ROS2 galactic
+- Ubuntu 20.04
+- Gazebo上でのみテスト
 
 ## Subscribe
 
@@ -18,4 +23,4 @@ LiDAR からのデータ
 
 マップ
 
-- `/map` (nav_msgs::OccupancyGrid)
+- `/map` (nav_msgs::msg::OccupancyGrid)
